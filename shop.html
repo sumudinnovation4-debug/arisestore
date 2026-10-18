@@ -1,33 +1,30 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Shop | Arise and Shine Digital World</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="assets/style.css"></head>
 <body>
 <div id="site-header"></div>
-<div id="head"></div>
 
-<main class="wrap block">
-  <div id="profile"></div>
-  <div class="label" id="brandLabel">Brand</div>
-  <div class="chips" id="brands" style="margin-bottom:14px"></div>
-  <div class="sechead">
-    <span id="count" aria-live="polite"></span>
-    <label style="font-size:14px">Sort <select id="sort" style="border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 8px">
-      <option value="">Priced items first</option><option value="asc">Price: low to high</option><option value="desc">Price: high to low</option><option value="name">Name</option></select></label>
+<main class="wrap">
+  <div class="titlebar">
+    <div><h1 id="title">All products</h1><div class="sub" id="sub"></div></div>
+    <label style="font-size:13px">Sort <select id="sort">
+      <option value="">Featured</option><option value="asc">Price: low to high</option><option value="desc">Price: high to low</option><option value="name">Name</option></select></label>
   </div>
-  <div class="grid" id="grid"><div class="empty">Loading products…</div></div>
+  <div id="tips"></div>
+  <div class="chips scroll" id="brands" style="margin-bottom:12px"></div>
+  <div class="grid" id="grid"><div class="empty" style="grid-column:1/-1">Loading products…</div></div>
 </main>
 
 <div id="site-footer"></div>
 <script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
 <script>
-A.layout("categories");
 var qs = new URLSearchParams(location.search);
 var st = { cat: qs.get("cat") || "", brand: qs.get("brand") || "", q: qs.get("q") || "", sort: qs.get("sort") || "" };
-var ALL = [];
-var $ = A.$;
+A.layout("categories", { strip: st.cat || true, q: st.q });
+var ALL = [], $ = A.$;
 $("#sort").value = st.sort;
 
 function sync() {
@@ -39,17 +36,13 @@ function head() {
   var c = A.cat(st.cat);
   if (c) {
     document.title = c.name + " | " + A.C.name;
-    $("#head").innerHTML = '<div class="pagehead"><div class="wrap"><div class="tile"><svg class="ico" viewBox="0 0 64 64" aria-hidden="true">' +
-      A.iconSvg(c.slug).replace(/^<svg[^>]*>|<\/svg>$/g, "") + '</svg></div><div><div class="label" style="color:inherit;opacity:.7"><a href="shop.html" style="text-decoration:none">All products</a> / Category</div><h1>' +
-      A.esc(c.name) + "</h1><p>" + A.esc(c.blurb) + " We carry " + A.esc(c.brands.join(", ")) + ".</p></div></div></div>";
-    $("#profile").innerHTML = '<div class="tips" style="margin-bottom:18px"><h2 style="font-size:18px">Before you buy</h2><ul>' +
-      c.tips.map(function (t) { return "<li>" + A.esc(t) + "</li>"; }).join("") + "</ul></div>";
+    $("#title").textContent = c.name;
+    $("#tips").innerHTML = '<details class="tips"><summary>About ' + A.esc(c.name) + " and buying tips</summary><p class=\"note\" style=\"margin-top:8px\">" + A.esc(c.blurb) + " We carry " + A.esc(c.brands.join(", ")) + ".</p><ul>" +
+      c.tips.map(function (t) { return "<li>" + A.esc(t) + "</li>"; }).join("") + "</ul></details>";
   } else {
-    document.title = "Shop | " + A.C.name;
-    $("#head").innerHTML = '<div class="pagehead"><div class="wrap"><div><h1>' + (st.q ? "Results for “" + A.esc(st.q) + "”" : "All products") +
-      "</h1><p>Choose a category to see buying tips and every brand we carry.</p></div></div></div>";
-    $("#profile").innerHTML = '<div class="label">Categories</div><div class="chips" style="margin-bottom:18px">' +
-      A.CAT.map(function (c) { return '<a class="chip" href="shop.html?cat=' + c.slug + '">' + A.esc(c.name) + "</a>"; }).join("") + "</div>";
+    document.title = (st.q ? "Search" : "Shop") + " | " + A.C.name;
+    $("#title").textContent = st.q ? "Results for “" + st.q + "”" : "All products";
+    $("#tips").innerHTML = "";
   }
 }
 function brandsRow() {
@@ -66,7 +59,7 @@ function grid() {
   var list = ALL.filter(function (p) {
     if (st.cat && p.category !== st.cat) return false;
     if (st.brand && p.brand !== st.brand) return false;
-    return !q || (p.name + " " + p.brand + " " + (p.description || "")).toLowerCase().indexOf(q) > -1;
+    return !q || (p.name + " " + p.brand + " " + (A.cat(p.category) || {}).name + " " + (p.description || "")).toLowerCase().indexOf(q) > -1;
   });
   list.sort(function (a, b) {
     if (st.sort === "name") return a.name.localeCompare(b.name);
@@ -74,19 +67,18 @@ function grid() {
     if (pa !== pb) return pa ? 1 : -1;
     if (st.sort === "asc") return a.price - b.price;
     if (st.sort === "desc") return b.price - a.price;
-    return a.category === b.category ? a.name.localeCompare(b.name) : 0;
+    return 0;
   });
-  $("#count").textContent = list.length + (list.length === 1 ? " product" : " products");
+  $("#sub").textContent = list.length + (list.length === 1 ? " product" : " products");
   $("#grid").innerHTML = list.length ? list.map(A.productCard).join("") :
     '<div class="empty" style="grid-column:1/-1">No products match. Try another brand or search word.</div>';
 }
-function render() { head(); brandsRow(); grid(); sync(); }
 document.addEventListener("click", function (e) {
   var b = e.target.closest("[data-b]"); if (!b) return;
   st.brand = b.getAttribute("data-b"); brandsRow(); grid(); sync();
 });
 $("#sort").addEventListener("change", function (e) { st.sort = e.target.value; grid(); sync(); });
-A.getProducts().then(function (l) { ALL = l; render(); }).catch(function (e) {
+A.getProducts().then(function (l) { ALL = l; head(); brandsRow(); grid(); sync(); }).catch(function (e) {
   $("#grid").innerHTML = '<div class="empty" style="grid-column:1/-1">Could not load products. ' + A.esc(e.message) + "</div>";
 });
 </script>

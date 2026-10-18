@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Arise and Shine Digital World</title>
 <meta name="description" content="Laptops, printers, networking, audio and power accessories from HP, Dell, Lenovo, Apple, Canon, Epson, JBL, Anker and more.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -8,45 +8,71 @@
 <body>
 <div id="site-header"></div>
 
-<section class="hero"><div class="wrap">
-  <h1>Computers, printers and power for the work you start today.</h1>
-  <p>Genuine brands from HP and Dell to Anker and APC. Order online, pay securely, and track your order from our store to your door.</p>
-  <form action="shop.html" role="search"><input name="q" type="search" placeholder="What do you need? e.g. HP laptop" aria-label="Search products"><button class="btn primary">Search</button></form>
-</div></section>
+<main class="wrap">
+  <section class="banner" aria-roledescription="carousel" aria-label="Featured">
+    <div class="slides" id="slides">
+      <a class="slide" href="shop.html?cat=laptops" style="background:linear-gradient(120deg,#12284a,#2b5aa6)"><h2>Laptops for work, school and creating</h2><p>HP, Dell, Lenovo, Apple, ASUS, Acer and Surface.</p><span class="go">Shop laptops</span></a>
+      <a class="slide" href="shop.html?cat=printers" style="background:linear-gradient(120deg,#5a2a0a,#d9480f)"><h2>Printers, ink and toner</h2><p>Print, scan and copy with Canon, Epson, HP and Brother.</p><span class="go">Shop printers</span></a>
+      <a class="slide" href="shop.html?cat=ups-stabilizers" style="background:linear-gradient(120deg,#0f3d2e,#1b8a5f)"><h2>Keep working when the power goes</h2><p>UPS, stabilizers and power banks from APC, Anker and more.</p><span class="go">Shop power</span></a>
+    </div>
+    <div class="dots" id="dots"></div>
+  </section>
 
-<section class="block wrap" id="categories">
-  <div class="sechead"><h2>Shop by category</h2><a href="shop.html">See all products</a></div>
-  <div class="catgrid" id="catgrid"></div>
-</section>
+  <div id="rails"><div class="shelf plain"><div class="empty">Loading products…</div></div></div>
 
-<section class="block wrap">
-  <div class="sechead"><h2>Ready to order</h2><a href="shop.html">Browse everything</a></div>
-  <div class="grid" id="featured"><div class="empty">Loading products…</div></div>
-</section>
+  <section class="shelf plain" id="tiles">
+    <div class="sechead"><h2>Shop by category</h2><a href="categories.html">See all</a></div>
+    <div class="catgrid" id="catgrid" style="padding-right:0"></div>
+  </section>
 
-<section class="block wrap">
-  <div class="sechead"><h2>How ordering works</h2></div>
-  <div class="how">
-    <div><h3>1. Choose</h3><p>Pick your products by category or brand and add them to your cart.</p></div>
-    <div><h3>2. Pay securely</h3><p>Pay by card through Paystack, or by bank transfer if you prefer.</p></div>
-    <div><h3>3. Track</h3><p>Use your order number and phone number to follow your order until it arrives.</p></div>
-  </div>
-</section>
+  <section class="how" style="margin-top:12px">
+    <div><h3>Pay securely</h3><p>Card or bank payment through Paystack, or bank transfer.</p></div>
+    <div><h3>Track every order</h3><p>Follow your order from our store to your door.</p></div>
+    <div><h3>Genuine brands</h3><p>Computers and accessories from the brands you know.</p></div>
+  </section>
+</main>
 
 <div id="site-footer"></div>
 <script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
 <script>
-A.layout("home");
+A.layout("home", { strip: true });
+
+/* category tiles */
 document.getElementById("catgrid").innerHTML = A.CAT.map(function (c) {
-  return '<a class="cat" href="shop.html?cat=' + c.slug + '"><span class="ic" style="--h:' + A.hue(c.slug) + '"><svg class="ico" viewBox="0 0 64 64" aria-hidden="true">' +
-    A.iconSvg(c.slug).replace(/^<svg[^>]*>|<\/svg>$/g, "") + '</svg></span><b>' + A.esc(c.name) + '</b><small>' + c.brands.length + ' brands</small></a>';
+  return '<a class="cat" href="shop.html?cat=' + c.slug + '">' + A.mediaFor(c.slug, c.wiki ? c.wiki[0] : "", c.name, "") + "<b>" + A.esc(c.name) + "</b></a>";
 }).join("");
+
+/* banner */
+(function () {
+  var slides = document.getElementById("slides"), n = slides.children.length, i = 0, t;
+  var dots = document.getElementById("dots");
+  dots.innerHTML = Array.prototype.map.call(slides.children, function (_, k) { return '<button class="dot" aria-label="Slide ' + (k + 1) + '" data-k="' + k + '"></button>'; }).join("");
+  function go(k) {
+    i = (k + n) % n; slides.style.transform = "translateX(-" + i * 100 + "%)";
+    Array.prototype.forEach.call(dots.children, function (d, j) { d.setAttribute("aria-current", j === i); });
+  }
+  dots.addEventListener("click", function (e) { var b = e.target.closest("[data-k]"); if (b) { go(+b.dataset.k); restart(); } });
+  function restart() {
+    clearInterval(t);
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) t = setInterval(function () { go(i + 1); }, 5000);
+  }
+  go(0); restart();
+})();
+
+/* product rails: first the categories people shop most, products visible straight away */
+var RAILS = ["laptops", "printers", "monitors", "ssd", "routers", "headphones", "ups-stabilizers", "power-banks", "keyboards-mice", "cables-chargers"];
 A.getProducts().then(function (list) {
-  var ready = list.filter(function (p) { return p.price != null && A.inStock(p); }).slice(0, 8);
-  var el = document.getElementById("featured");
-  el.innerHTML = ready.length ? ready.map(A.productCard).join("") : '<div class="empty">Products with prices will appear here once they are added in the admin page.</div>';
+  var html = RAILS.map(function (slug) {
+    var c = A.cat(slug); if (!c) return "";
+    var items = list.filter(function (p) { return p.category === slug; });
+    items.sort(function (a, b) { return (a.price == null) - (b.price == null); });
+    if (!items.length) return "";
+    return '<section class="shelf"><div class="sechead"><h2>' + A.esc(c.name) + '</h2><a href="shop.html?cat=' + slug + '">See all</a></div><div class="rail">' +
+      items.slice(0, 10).map(A.productCard).join("") + "</div></section>";
+  }).join("");
+  document.getElementById("rails").innerHTML = html || '<div class="shelf plain"><div class="empty">Products will appear here once they are added.</div></div>';
 }).catch(function (e) {
-  document.getElementById("featured").innerHTML = '<div class="empty">Could not load products. ' + A.esc(e.message) + "</div>";
+  document.getElementById("rails").innerHTML = '<div class="shelf plain"><div class="empty">Could not load products. ' + A.esc(e.message) + "</div></div>";
 });
 </script>
 </body></html>

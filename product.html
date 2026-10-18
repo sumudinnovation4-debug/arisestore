@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Product | Arise and Shine Digital World</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="assets/style.css"></head>
 <body>
 <div id="site-header"></div>
-<main class="wrap block" id="main"><div class="empty">Loading…</div></main>
+<main class="wrap" id="main"><div class="empty">Loading…</div></main>
 <div id="site-footer"></div>
 <script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
 <script>
@@ -21,23 +21,23 @@ A.getProducts().then(function (list) {
   var buy = p.price != null && A.inStock(p);
   var stock = p.price == null ? "" : !A.inStock(p) ? '<span class="tag bad">Out of stock</span>'
     : (p.stock != null && p.stock <= 5 ? '<span class="tag warn">Only ' + p.stock + " left</span>" : '<span class="tag ok">In stock</span>');
-  var action;
-  if (buy) action = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><div class="qty"><button id="minus" aria-label="Fewer">−</button><span id="q">1</span><button id="plus" aria-label="More">+</button></div>' +
-    '<button class="btn primary" id="add">Add to cart</button><button class="btn deep" id="buy">Buy now</button></div>';
-  else if (A.C.whatsapp) action = '<a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/' + A.esc(A.C.whatsapp) + "?text=" +
+  var box = '<div class="buybox">' +
+    (p.price != null ? '<div class="price">' + A.money(p.price) + "</div>" : '<div class="price ask">Price on request</div>') + stock;
+  if (buy) box += '<div style="display:flex;align-items:center;gap:10px"><span class="note">Quantity</span><div class="qty"><button id="minus" aria-label="Fewer">−</button><span id="q">1</span><button id="plus" aria-label="More">+</button></div></div>' +
+    '<button class="btn primary" id="add" style="border-radius:99px">Add to cart</button><button class="btn yellow" id="buy" style="border-radius:99px">Buy now</button>';
+  else if (A.C.whatsapp) box += '<a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/' + A.esc(A.C.whatsapp) + "?text=" +
     encodeURIComponent("Hello, please send me the price and availability for " + p.name) + '">Ask for the price on WhatsApp</a>';
-  else action = '<p class="note">Contact the store for the price of this item.</p>';
+  else box += '<p class="note">Contact the store for the price of this item.</p>';
+  box += '<p class="note">Pickup from the store or delivery. Pay by card, bank or transfer. Track your order after checkout.</p></div>';
+
   main.innerHTML =
-    '<p class="note"><a href="shop.html">Shop</a> / <a href="shop.html?cat=' + p.category + '">' + A.esc(c ? c.name : "") + "</a></p>" +
-    '<div class="layout2" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);margin-top:12px"><div class="panel" style="padding:0;overflow:hidden">' + A.media(p) + "</div>" +
-    '<div><span class="brand">' + A.esc(p.brand) + '</span><h1 style="font-size:32px;margin:4px 0 8px">' + A.esc(p.name) + "</h1>" +
-    "<p>" + A.esc(p.description || "") + "</p>" +
-    '<p>' + (p.price != null ? '<span class="price" style="font-size:28px">' + A.money(p.price) + "</span> " : '<span class="price ask">Price on request</span> ') + stock + "</p>" +
-    action +
-    (c ? '<div class="tips" style="margin-top:20px"><h2 style="font-size:16px">Before you buy</h2><ul>' + c.tips.map(function (t) { return "<li>" + A.esc(t) + "</li>"; }).join("") + "</ul></div>" : "") +
-    "</div></div>" +
-    '<div class="sechead" style="margin-top:34px"><h2>More ' + A.esc(c ? c.name : "products") + '</h2></div><div class="grid" id="related"></div>';
-  var rel = list.filter(function (x) { return x.category === p.category && x.id !== p.id; }).slice(0, 4);
+    '<p class="crumbs"><a href="shop.html">Shop</a> › <a href="shop.html?cat=' + p.category + '">' + A.esc(c ? c.name : "") + "</a></p>" +
+    '<div class="pp"><div class="gal">' + A.media(p) + "</div>" +
+    '<div class="info"><span class="brand">' + A.esc(p.brand) + "</span><h1>" + A.esc(p.name) + "</h1><p>" + A.esc(p.description || "") + "</p>" +
+    (c ? '<div class="tips" style="margin-top:14px"><h2 style="font-size:16px">Before you buy</h2><ul>' + c.tips.map(function (t) { return "<li>" + A.esc(t) + "</li>"; }).join("") + "</ul></div>" : "") + "</div>" +
+    box + "</div>" +
+    '<section class="shelf" style="margin-top:16px"><div class="sechead"><h2>More ' + A.esc(c ? c.name : "products") + '</h2><a href="shop.html?cat=' + p.category + '">See all</a></div><div class="rail" id="related"></div></section>';
+  var rel = list.filter(function (x) { return x.category === p.category && x.id !== p.id; }).slice(0, 10);
   document.getElementById("related").innerHTML = rel.map(A.productCard).join("");
   if (buy) {
     var q = 1, max = p.stock == null ? 50 : Math.min(50, p.stock);
