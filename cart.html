@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Your cart | Arise and Shine Digital World</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
@@ -7,36 +7,51 @@
 <body>
 <div id="site-header"></div>
 <main class="wrap block">
-  <h1 style="font-size:32px;margin-bottom:16px">Your cart</h1>
+  <h1 style="font-size:26px;margin-bottom:14px">Your cart</h1>
   <div class="layout2">
-    <div class="panel lines" id="lines"><div class="empty">Loading…</div></div>
+    <div>
+      <div class="panel lines" id="lines" style="margin-bottom:14px"><div class="empty">Loading…</div></div>
+      <div class="panel lines" id="quote" hidden>
+        <h2>Waiting for a price</h2>
+        <p class="note" style="margin-bottom:6px">These items have no price listed yet. Send us the list and we reply with the price and availability.</p>
+        <div id="quoteLines"></div>
+        <div style="margin-top:12px" id="quoteAct"></div>
+      </div>
+    </div>
     <div class="panel"><h2>Summary</h2><div class="sum" id="sum"></div>
       <p class="note" style="margin:10px 0 14px">Delivery fee is added at checkout.</p>
-      <a class="btn primary" id="go" href="checkout.html" style="display:block">Go to checkout</a></div>
+      <a class="btn primary" id="go" href="checkout.html" style="display:block;border-radius:99px">Go to checkout</a></div>
   </div>
 </main>
 <div id="site-footer"></div>
 <script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
 <script>
 A.layout("cart");
-var PRODS = [];
+var PRODS = [], $ = A.$;
+function line(p, q, priced) {
+  return '<div class="ln"><div class="th">' + A.media(p) + '</div><div class="info"><b><a href="product.html?id=' + encodeURIComponent(p.id) + '" style="text-decoration:none">' + A.esc(p.name) + "</a></b>" +
+    '<span class="note">' + (priced ? A.money(p.price) + " each" : "Price on request") + '</span></div><div class="qty"><button data-dec="' + A.esc(p.id) + '" aria-label="Fewer">−</button><span>' + q +
+    '</span><button data-inc="' + A.esc(p.id) + '" aria-label="More">+</button></div>' + (priced ? '<b style="min-width:84px;text-align:right">' + A.money(p.price * q) + "</b>" : "") +
+    '<button class="btn small" data-rm="' + A.esc(p.id) + '" aria-label="Remove ' + A.esc(p.name) + '">Remove</button></div>';
+}
 function render() {
-  var cart = A.cart.get(), ids = Object.keys(cart), sub = 0, h = "", valid = 0;
-  ids.forEach(function (id) {
+  var cart = A.cart.get(), sub = 0, ready = "", quote = "", nReady = 0, nQuote = 0, qtext = [];
+  Object.keys(cart).forEach(function (id) {
     var p = PRODS.filter(function (x) { return x.id === id; })[0];
-    if (!p || p.price == null || !A.inStock(p)) { A.cart.setQty(id, 0); return; }
+    if (!p || (p.price != null && !A.inStock(p))) { A.cart.setQty(id, 0); return; }
     var q = p.stock == null ? cart[id] : Math.min(cart[id], p.stock);
     if (q !== cart[id]) A.cart.setQty(id, q);
-    valid++; sub += p.price * q;
-    h += '<div class="ln"><div class="th">' + A.media(p) + '</div><div class="info"><b><a href="product.html?id=' + encodeURIComponent(p.id) + '" style="text-decoration:none">' + A.esc(p.name) + "</a></b>" +
-      '<span class="note">' + A.money(p.price) + ' each</span></div><div class="qty"><button data-dec="' + A.esc(id) + '" aria-label="Fewer">−</button><span>' + q +
-      '</span><button data-inc="' + A.esc(id) + '" aria-label="More">+</button></div><b style="min-width:84px;text-align:right">' + A.money(p.price * q) +
-      '</b><button class="btn small" data-rm="' + A.esc(id) + '" aria-label="Remove ' + A.esc(p.name) + '">Remove</button></div>';
+    if (p.price == null) { nQuote++; quote += line(p, q, false); qtext.push("- " + q + " x " + p.name); }
+    else { nReady++; sub += p.price * q; ready += line(p, q, true); }
   });
-  document.getElementById("lines").innerHTML = valid ? h : '<div class="empty">Your cart is empty. <a href="shop.html">Start shopping</a></div>';
-  document.getElementById("sum").innerHTML = '<div><span>Items</span><span>' + A.cart.count() + '</span></div><div class="tot"><span>Subtotal</span><span>' + A.money(sub) + "</span></div>";
-  var go = document.getElementById("go");
-  go.style.pointerEvents = valid ? "" : "none"; go.style.opacity = valid ? "" : ".5";
+  $("#lines").innerHTML = nReady ? ready : '<div class="empty">' + (nQuote ? "No priced items in your cart yet." : 'Your cart is empty. <a href="shop.html">Start shopping</a>') + "</div>";
+  $("#quote").hidden = !nQuote;
+  $("#quoteLines").innerHTML = quote;
+  $("#quoteAct").innerHTML = A.C.whatsapp
+    ? '<a class="btn primary" target="_blank" rel="noopener" style="border-radius:99px" href="https://wa.me/' + A.esc(A.C.whatsapp) + "?text=" + encodeURIComponent("Hello Arise and Shine Digital World, please send me the price and availability for:\n" + qtext.join("\n")) + '">Ask for prices on WhatsApp</a>'
+    : '<p class="note">Contact the store with this list to get prices' + (A.C.phone ? ": " + A.esc(A.C.phone) : "") + ".</p>";
+  $("#sum").innerHTML = '<div><span>Items to pay for</span><span>' + (nReady ? Object.keys(cart).reduce(function (n, id) { var p = PRODS.filter(function (x) { return x.id === id; })[0]; return n + (p && p.price != null ? cart[id] : 0); }, 0) : 0) + '</span></div><div class="tot"><span>Subtotal</span><span>' + A.money(sub) + "</span></div>";
+  var go = $("#go"); go.style.pointerEvents = nReady ? "" : "none"; go.style.opacity = nReady ? "" : ".5";
   A.badge();
 }
 document.addEventListener("click", function (e) {
@@ -47,7 +62,7 @@ document.addEventListener("click", function (e) {
   else if ((id = t.getAttribute("data-rm"))) { A.cart.setQty(id, 0); render(); }
 });
 A.getProducts().then(function (l) { PRODS = l; render(); }).catch(function (e) {
-  document.getElementById("lines").innerHTML = '<div class="empty">Could not load your cart. ' + A.esc(e.message) + "</div>";
+  $("#lines").innerHTML = '<div class="empty">Could not load your cart. ' + A.esc(e.message) + "</div>";
 });
 </script>
 </body></html>

@@ -1,169 +1,464 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
 <title>Store admin | Arise and Shine Digital World</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="assets/style.css"></head>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+body{padding-bottom:40px}
+.ah{background:var(--header);color:#fff;position:sticky;top:0;z-index:30}
+.ah .wrap{display:flex;align-items:center;gap:10px;padding-block:10px;flex-wrap:wrap}
+.ah b{font-family:var(--font-display);font-size:17px}
+.ah small{opacity:.7;display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+.ah .sp{flex:1}
+.ah .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.35);padding:6px 12px;font-size:13px}
+.tabs2{background:var(--surface);border-bottom:1px solid var(--line)}
+.tabs2 .wrap{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.tabs2 button{border:0;background:none;padding:12px 14px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
+.tabs2 button[aria-current="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.tabs2 .n{background:var(--accent);color:var(--accent-ink);border-radius:99px;font-size:11px;padding:0 6px;margin-left:5px}
+main.wrap{padding-block:16px}
+h2.t{font-size:20px;margin-bottom:12px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:left;display:block;width:100%}
+.tile b{font-size:24px;font-family:var(--font-display);display:block;line-height:1.1;overflow-wrap:anywhere}
+.tile span{color:var(--muted);font-size:13px}
+.tile.alert{border-color:var(--warn)}
+.tile.alert b{color:var(--warn)}
+.two-col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:820px){.two-col{grid-template-columns:1fr}}
+.bars{display:flex;align-items:flex-end;gap:5px;height:110px;margin-top:8px}
+.bars i{flex:1;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px;display:block}
+.barlab{display:flex;gap:5px;font-size:10px;color:var(--muted);margin-top:4px}
+.barlab span{flex:1;text-align:center;overflow:hidden}
+.tb{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.tb input,.tb select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 10px;min-width:0}
+.tb input[type=search]{flex:1 1 180px}
+.tb .sp{flex:1}
+.pth{width:44px;height:44px;flex:none}
+.pth .media{aspect-ratio:1;border-radius:6px}
+td .num{width:104px}
+.prod{display:flex;gap:10px;align-items:center;min-width:0}
+.prod b{font-weight:600;display:block;overflow-wrap:anywhere}
+.prod small{color:var(--muted)}
+.bulk{position:sticky;bottom:10px;background:var(--header);color:#fff;border-radius:12px;padding:10px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;z-index:20}
+.bulk input{width:100px;border-radius:8px;border:0;padding:7px 8px}
+.bulk .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.4);padding:6px 11px;font-size:13px}
+.scrim2{position:fixed;inset:0;background:rgba(5,10,20,.5);z-index:50}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(540px,100%);background:var(--surface);z-index:51;overflow:auto;padding:16px;border-left:1px solid var(--line)}
+.drawer .dh{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.drawer .dh h2{font-size:19px}
+.x{border:0;background:var(--bg);border-radius:8px;padding:6px 11px;font-size:18px;line-height:1}
+.imgbox{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.imgbox .pv{width:96px;height:96px;flex:none;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;display:grid;place-items:center}
+.imgbox .pv img{width:100%;height:100%;object-fit:contain}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+textarea.csv{width:100%;min-height:150px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px;font:13px/1.4 ui-monospace,Menlo,monospace}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--bg)}
+.ok{color:var(--ok);font-weight:700}.err{color:var(--bad);font-weight:700}
+</style></head>
 <body>
-<div id="site-header"></div>
-<main class="wrap block">
-  <div id="gate"></div>
-  <div id="app" hidden>
-    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-      <h1 style="font-size:30px">Store admin</h1><button class="btn small" id="logout">Log out</button>
-    </div>
-    <div class="tabs" role="tablist">
-      <button class="chip" data-tab="orders" aria-pressed="true">Orders</button>
-      <button class="chip" data-tab="products" aria-pressed="false">Products and prices</button>
-      <button class="chip" data-tab="settings" aria-pressed="false">Settings</button>
-    </div>
-    <div id="tab"></div>
-  </div>
-</main>
+<div id="gate" class="wrap" style="padding-block:24px"></div>
+
+<div id="app" hidden>
+  <header class="ah"><div class="wrap">
+    <div><b>Store admin</b><small>Arise and Shine Digital World</small></div>
+    <span class="sp"></span>
+    <a class="btn" href="index.html" target="_blank" rel="noopener">View store</a>
+    <button class="btn" id="out">Sign out</button>
+  </div></header>
+  <nav class="tabs2" aria-label="Admin sections"><div class="wrap" id="tabs"></div></nav>
+  <main class="wrap" id="view"></main>
+</div>
+<div id="drawerRoot"></div>
+
 <script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
 <script>
-A.layout("profile");
-var $ = A.$, tab = "orders", ORDERS = [], PRODUCTS = [], oFilter = "", pCat = "", pQ = "";
+var $ = A.$;
+var ORDERS = [], PRODUCTS = [], SETTINGS = {}, view = "overview";
+var oF = "", oQ = "", pQ = "", pCat = "", pF = "", pLimit = 60, SEL = {};
 var STATUSES = Object.keys(A.STATUS);
+var OPEN = ["placed", "confirmed", "processing", "out_for_delivery", "ready_for_pickup"];
+var TABS = [["overview", "Overview"], ["orders", "Orders"], ["products", "Products"], ["import", "Add many at once"], ["settings", "Settings"]];
 
+function fmt(d) { return new Date(d).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }); }
+function catName(slug) { return (A.cat(slug) || {}).name || slug; }
+function waLink(phone, text) {
+  var d = String(phone).replace(/\D/g, ""); if (d.charAt(0) === "0") d = "234" + d.slice(1);
+  return "https://wa.me/" + d + "?text=" + encodeURIComponent(text);
+}
+function fail(e) {
+  if (/jwt|token|expired|permission|401|403|row-level/i.test(e.message)) { A.toast("Your session ended or you do not have access. Sign in again."); }
+  else A.toast(e.message);
+}
+
+/* ---------- access gate ---------- */
 function gate() {
   $("#app").hidden = true; $("#gate").hidden = false;
-  if (!A.LIVE) { $("#gate").innerHTML = '<div class="msg warn">The admin page needs Supabase. Add your Supabase URL and anon key in config.js (see README.md), then reload.</div>'; return; }
+  if (!A.LIVE) { $("#gate").innerHTML = '<div class="msg warn">The admin dashboard needs Supabase. Add your Supabase URL and anon key in config.js (see README.md), then reload.</div>'; return; }
   if (!A.auth.user()) {
-    $("#gate").innerHTML = '<div class="panel" style="max-width:380px"><h2>Owner access</h2><p class="note" style="margin-bottom:12px">Sign in with the store owner account to manage orders and products.</p><a class="btn primary" href="profile.html?next=admin.html">Sign in</a></div>';
+    $("#gate").innerHTML = '<div class="panel" style="max-width:380px;margin:40px auto"><h2>Owner access</h2><p class="note" style="margin-bottom:12px">Sign in with the store owner account to manage orders and products.</p><a class="btn primary" href="profile.html?next=admin.html">Sign in</a></div>';
     return;
   }
   $("#gate").innerHTML = '<div class="empty">Checking access…</div>';
   A.auth.isAdmin().then(function (ok) {
     if (ok) start();
-    else $("#gate").innerHTML = '<div class="msg bad">This page is only for the store owner.</div><a class="btn" href="profile.html">Back to my account</a>';
+    else $("#gate").innerHTML = '<div class="panel" style="max-width:420px;margin:40px auto"><div class="msg bad">This page is only for the store owner.</div><a class="btn" href="profile.html">Back to my account</a></div>';
   });
 }
-function start() { $("#gate").hidden = true; $("#app").hidden = false; show(tab); }
-function authFail(e) { if (/jwt|token|expired|permission|401/i.test(e.message)) { A.auth.signOut(); gate(); } else A.toast(e.message); }
-
-function show(t) {
-  tab = t;
-  A.$$("[data-tab]").forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-tab") === t); });
-  if (t === "orders") loadOrders(); else if (t === "products") loadProducts(); else loadSettings();
+function start() {
+  $("#gate").hidden = true; $("#app").hidden = false;
+  var h = location.hash.replace("#", ""); if (TABS.some(function (t) { return t[0] === h; })) view = h;
+  A.getSettings().then(function (s) { SETTINGS = s || {}; }).catch(function () {});
+  load();
 }
-A.$$("[data-tab]").forEach(function (b) { b.onclick = function () { show(b.getAttribute("data-tab")); }; });
-$("#logout").onclick = function () { A.auth.signOut(); location.href = "profile.html"; };
+function load(quiet) {
+  if (!quiet) $("#view").innerHTML = '<div class="empty">Loading…</div>';
+  return Promise.all([A.admin.orders(), A.admin.products()]).then(function (r) {
+    ORDERS = r[0] || []; PRODUCTS = r[1] || []; render();
+  }).catch(function (e) { $("#view").innerHTML = '<div class="msg bad">Could not load data. ' + A.esc(e.message) + "</div>"; fail(e); });
+}
+function go(v) { view = v; SEL = {}; location.hash = v; render(); window.scrollTo(0, 0); }
+function tabsHtml() {
+  var open = ORDERS.filter(function (o) { return OPEN.indexOf(o.status) > -1; }).length;
+  $("#tabs").innerHTML = TABS.map(function (t) {
+    return '<button data-tab="' + t[0] + '" aria-current="' + (t[0] === view) + '">' + t[1] + (t[0] === "orders" && open ? '<span class="n">' + open + "</span>" : "") + "</button>";
+  }).join("");
+}
+function render() {
+  tabsHtml();
+  ({ overview: overview, orders: orders, products: products, import: importView, settings: settings })[view]();
+}
+
+/* ---------- overview ---------- */
+function overview() {
+  var live = ORDERS.filter(function (o) { return o.status !== "cancelled"; });
+  var paid = live.filter(function (o) { return o.payment_status === "paid"; });
+  var sum = function (l) { return l.reduce(function (n, o) { return n + Number(o.total); }, 0); };
+  var d30 = Date.now() - 30 * 864e5;
+  var open = ORDERS.filter(function (o) { return OPEN.indexOf(o.status) > -1; });
+  var unpaid = live.filter(function (o) { return o.payment_status !== "paid"; });
+  var noPrice = PRODUCTS.filter(function (p) { return p.price == null; });
+  var low = PRODUCTS.filter(function (p) { return p.stock != null && p.stock <= 3; });
+  var hidden = PRODUCTS.filter(function (p) { return !p.active; });
+  var days = [], i;
+  for (i = 13; i >= 0; i--) { var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i); days.push({ d: d, v: 0 }); }
+  paid.forEach(function (o) { var t = new Date(o.created_at); t.setHours(0, 0, 0, 0); days.forEach(function (x) { if (x.d.getTime() === t.getTime()) x.v += Number(o.total); }); });
+  var max = Math.max.apply(null, days.map(function (x) { return x.v; })) || 1;
+  $("#view").innerHTML =
+    '<div class="tiles">' +
+    '<button class="tile' + (open.length ? " alert" : "") + '" data-jump="orders:open"><b>' + open.length + "</b><span>Orders to fulfil</span></button>" +
+    '<button class="tile' + (unpaid.length ? " alert" : "") + '" data-jump="orders:unpaid"><b>' + unpaid.length + "</b><span>Waiting for payment</span></button>" +
+    '<div class="tile"><b>' + A.money(sum(paid.filter(function (o) { return new Date(o.created_at) > d30; }))) + "</b><span>Paid, last 30 days</span></div>" +
+    '<div class="tile"><b>' + A.money(sum(paid)) + "</b><span>Paid, all time</span></div></div>" +
+    '<div class="tiles">' +
+    '<button class="tile" data-jump="products:"><b>' + PRODUCTS.length + "</b><span>Products listed" + (hidden.length ? " (" + hidden.length + " hidden)" : "") + "</span></button>" +
+    '<button class="tile' + (noPrice.length ? " alert" : "") + '" data-jump="products:noprice"><b>' + noPrice.length + "</b><span>Products without a price</span></button>" +
+    '<button class="tile' + (low.length ? " alert" : "") + '" data-jump="products:low"><b>' + low.length + "</b><span>Low or out of stock</span></button></div>" +
+    '<div class="two-col"><div class="panel"><h2>Paid sales, last 14 days</h2><div class="bars">' +
+    days.map(function (x) { return '<i style="height:' + Math.max(2, Math.round(x.v / max * 100)) + '%" title="' + x.d.toLocaleDateString("en-NG", { day: "numeric", month: "short" }) + ": " + A.money(x.v) + '"></i>'; }).join("") +
+    '</div><div class="barlab">' + days.map(function (x, k) { return "<span>" + (k % 2 === 0 ? x.d.getDate() : "") + "</span>"; }).join("") + "</div></div>" +
+    '<div class="panel"><h2>Latest orders</h2>' + (ORDERS.length ? '<div class="tablewrap" style="border:0"><table style="min-width:0"><tbody>' + ORDERS.slice(0, 7).map(function (o) {
+      return '<tr class="click" data-order="' + A.esc(o.id) + '"><td><b>' + A.esc(o.ref) + "</b><br><small class=\"note\">" + A.esc(o.customer_name) + "</small></td><td>" + A.money(o.total) + '</td><td><span class="tag ' + (o.payment_status === "paid" ? "ok" : "warn") + '">' + (o.payment_status === "paid" ? "Paid" : "Unpaid") + "</span></td></tr>";
+    }).join("") + "</tbody></table></div>" : '<p class="note">No orders yet. They appear here when customers check out.</p>') + "</div></div>" +
+    (noPrice.length ? '<div class="msg warn" style="margin-top:14px">' + noPrice.length + ' products have no price, so customers can only ask for a quote on them. <a href="#products" data-jump="products:noprice">Set prices</a> or <a href="#import" data-jump="import:">add many at once</a>.</div>' : "");
+}
 
 /* ---------- orders ---------- */
-function loadOrders() {
-  $("#tab").innerHTML = '<div class="empty">Loading orders…</div>';
-  A.admin.orders().then(function (r) { ORDERS = r || []; drawOrders(); }).catch(authFail);
+function orderRows() {
+  var q = oQ.trim().toLowerCase();
+  return ORDERS.filter(function (o) {
+    if (oF === "open" && OPEN.indexOf(o.status) < 0) return false;
+    if (oF === "unpaid" && !(o.payment_status !== "paid" && o.status !== "cancelled")) return false;
+    if (oF && oF !== "open" && oF !== "unpaid" && o.status !== oF) return false;
+    return !q || (o.ref + " " + o.customer_name + " " + o.phone + " " + o.email).toLowerCase().indexOf(q) > -1;
+  });
 }
-function drawOrders() {
-  var list = ORDERS.filter(function (o) { return !oFilter || (oFilter === "unpaid" ? o.payment_status !== "paid" && o.status !== "cancelled" : o.status === oFilter); });
-  var h = '<div class="chips" style="margin-bottom:12px"><button class="chip" aria-pressed="' + !oFilter + '" data-f="">All <em>' + ORDERS.length + "</em></button>" +
-    '<button class="chip" aria-pressed="' + (oFilter === "unpaid") + '" data-f="unpaid">Unpaid</button>' +
-    STATUSES.map(function (s) { return '<button class="chip" aria-pressed="' + (oFilter === s) + '" data-f="' + s + '">' + A.STATUS[s] + "</button>"; }).join("") + "</div>";
-  h += '<div class="tablewrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Payment</th><th>Status</th><th></th></tr></thead><tbody>' +
+function orders() {
+  var chips = [["", "All"], ["open", "To fulfil"], ["unpaid", "Unpaid"]].concat(STATUSES.map(function (s) { return [s, A.STATUS[s]]; }));
+  $("#view").innerHTML = '<h2 class="t">Orders</h2><div class="tb"><input id="oq" type="search" placeholder="Search order number, name or phone" value="' + A.esc(oQ) + '"><button class="btn small" id="refresh">Refresh</button></div>' +
+    '<div class="chips scroll" style="margin-bottom:12px">' + chips.map(function (c) { return '<button class="chip" data-of="' + c[0] + '" aria-pressed="' + (oF === c[0]) + '">' + c[1] + "</button>"; }).join("") + '</div><div id="olist"></div>';
+  ordersList();
+}
+function ordersList() {
+  var list = orderRows();
+  $("#olist").innerHTML = '<div class="tablewrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Payment</th><th>Status</th><th>Placed</th></tr></thead><tbody>' +
     (list.length ? list.map(function (o) {
-      return '<tr><td><b>' + A.esc(o.ref) + '</b><br><small>' + new Date(o.created_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) + "</small></td><td>" + A.esc(o.customer_name) + "<br><small>" + A.esc(o.phone) + "</small></td><td>" + A.money(o.total) +
-        '</td><td><span class="tag ' + (o.payment_status === "paid" ? "ok" : "warn") + '">' + A.esc(o.payment_status) + "</span></td><td>" + A.esc(A.STATUS[o.status] || o.status) + '</td><td><button class="btn small" data-open="' + A.esc(o.id) + '">Open</button></td></tr>';
-    }).join("") : '<tr><td colspan="6" class="empty">No orders here yet.</td></tr>') + "</tbody></table></div><div id=\"detail\" style=\"margin-top:16px\"></div>";
-  $("#tab").innerHTML = h;
+      return '<tr class="click" data-order="' + A.esc(o.id) + '"><td><b>' + A.esc(o.ref) + "</b></td><td>" + A.esc(o.customer_name) + "<br><small class=\"note\">" + A.esc(o.phone) + "</small></td><td>" + A.money(o.total) +
+        '</td><td><span class="tag ' + (o.payment_status === "paid" ? "ok" : "warn") + '">' + (o.payment_status === "paid" ? "Paid" : "Unpaid") + " · " + (o.payment_method === "transfer" ? "Transfer" : "Paystack") + "</span></td><td>" + A.esc(A.STATUS[o.status] || o.status) + "</td><td><small>" + fmt(o.created_at) + "</small></td></tr>";
+    }).join("") : '<tr><td colspan="6" class="empty">No orders match.</td></tr>') + "</tbody></table></div>";
 }
+function drawer(title, body) {
+  $("#drawerRoot").innerHTML = '<div class="scrim2" id="scrim2"></div><aside class="drawer" role="dialog" aria-label="' + A.esc(title) + '"><div class="dh"><h2>' + A.esc(title) + '</h2><button class="x" id="closeD" aria-label="Close">×</button></div>' + body + "</aside>";
+  $("#scrim2").onclick = closeDrawer; $("#closeD").onclick = closeDrawer;
+}
+function closeDrawer() { $("#drawerRoot").innerHTML = ""; }
 function openOrder(id) {
   var o = ORDERS.filter(function (x) { return x.id === id; })[0]; if (!o) return;
+  drawer("Order " + o.ref, '<div class="empty">Loading…</div>');
   A.admin.events(id).then(function (ev) {
-    var wa = "https://wa.me/" + String(o.phone).replace(/\D/g, "").replace(/^0/, "234") + "?text=" + encodeURIComponent("Hello " + o.customer_name + ", this is " + A.C.name + " about your order " + o.ref + ".");
-    $("#detail").innerHTML = '<div class="panel"><h2>Order ' + A.esc(o.ref) + "</h2>" +
-      "<p><b>" + A.esc(o.customer_name) + "</b><br>" + A.esc(o.phone) + " · " + A.esc(o.email) + '<br><a href="' + wa + '" target="_blank" rel="noopener">Message on WhatsApp</a></p>' +
-      "<p>" + (o.delivery_method === "pickup" ? "Pickup" : "Deliver to: " + A.esc([o.address, o.city, o.state].filter(Boolean).join(", "))) + "</p>" +
+    drawer("Order " + o.ref,
+      '<p><b>' + A.esc(o.customer_name) + "</b><br>" + A.esc(o.phone) + " · " + A.esc(o.email) + '<br><a href="' + waLink(o.phone, "Hello " + o.customer_name + ", this is " + A.C.name + " about your order " + o.ref + ".") + '" target="_blank" rel="noopener">Message on WhatsApp</a></p>' +
+      "<p class=\"note\" style=\"margin:8px 0\">" + (o.delivery_method === "pickup" ? "Store pickup" : "Deliver to: " + A.esc([o.address, o.city, o.state].filter(Boolean).join(", "))) + "</p>" +
       '<div class="sum" style="margin:10px 0">' + (o.items || []).map(function (i) { return "<div><span>" + i.qty + " × " + A.esc(i.name) + "</span><span>" + A.money(i.price * i.qty) + "</span></div>"; }).join("") +
-      '<div class="tot"><span>Total (' + A.esc(o.payment_method) + ')</span><span>' + A.money(o.total) + "</span></div></div>" +
-      '<div class="two"><div class="field"><label for="ns">Update status</label><select id="ns">' + STATUSES.map(function (s) { return '<option value="' + s + '"' + (s === o.status ? " selected" : "") + ">" + A.STATUS[s] + "</option>"; }).join("") + "</select></div>" +
-      '<div class="field"><label for="nn">Note for the customer (optional)</label><input id="nn" placeholder="e.g. Rider Musa will call you"></div></div>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="save">Save status</button>' +
-      (o.payment_status !== "paid" ? '<button class="btn" id="paid">Mark as paid</button>' : "") + "</div>" +
+      "<div><span>Delivery</span><span>" + (Number(o.delivery_fee) ? A.money(o.delivery_fee) : "Free") + '</span></div><div class="tot"><span>Total</span><span>' + A.money(o.total) + "</span></div></div>" +
+      '<p><span class="tag ' + (o.payment_status === "paid" ? "ok" : "warn") + '">' + (o.payment_status === "paid" ? "Paid" : "Payment pending") + "</span> <span class=\"note\">" + (o.payment_method === "transfer" ? "Bank transfer" : "Paystack") + "</span></p>" +
+      (o.payment_status !== "paid" && o.status !== "cancelled" ? '<div class="actions"><button class="btn" id="paid">Mark as paid</button></div>' : "") +
+      '<div class="field" style="margin-top:14px"><label for="ns">Order status</label><select id="ns">' + STATUSES.map(function (s) { return '<option value="' + s + '"' + (s === o.status ? " selected" : "") + ">" + A.STATUS[s] + "</option>"; }).join("") + "</select></div>" +
+      '<div class="field"><label for="nn">Message for the customer (optional)</label><input id="nn" placeholder="e.g. Rider Musa will call you"></div>' +
+      '<div class="actions"><button class="btn primary" id="saveS">Update status</button></div><p class="note" style="margin-top:6px">Cancelling an order puts its items back in stock.</p>' +
       '<h3 style="margin:18px 0 8px;font-size:16px">History</h3><ul class="timeline">' + ev.slice().reverse().map(function (e) {
-        return "<li><b>" + A.esc(A.STATUS[e.status] || e.status) + "</b> " + (e.note ? "· " + A.esc(e.note) : "") + "<br><small>" + new Date(e.created_at).toLocaleString("en-NG") + "</small></li>";
-      }).join("") + "</ul></div>";
-    $("#detail").scrollIntoView({ behavior: "smooth", block: "start" });
-    $("#save").onclick = function () {
-      A.admin.setStatus(id, $("#ns").value, $("#nn").value.trim()).then(function () { A.toast("Status updated"); loadOrders(); setTimeout(function () { openOrder(id); }, 400); }).catch(authFail);
+        return "<li><b>" + A.esc(A.STATUS[e.status] || e.status) + "</b>" + (e.note ? " · " + A.esc(e.note) : "") + "<br><small>" + fmt(e.created_at) + "</small></li>";
+      }).join("") + "</ul>");
+    $("#saveS").onclick = function () {
+      var st = $("#ns").value; $("#saveS").disabled = true;
+      A.admin.setStatus(o, st, $("#nn").value.trim()).then(function () { A.toast("Status updated"); return load(true); }).then(function () { openOrder(id); }).catch(function (e) { $("#saveS").disabled = false; fail(e); });
     };
     var pb = $("#paid");
-    if (pb) pb.onclick = function () { A.admin.markPaid(id).then(function () { A.toast("Marked as paid"); loadOrders(); setTimeout(function () { openOrder(id); }, 400); }).catch(authFail); };
-  }).catch(authFail);
+    if (pb) pb.onclick = function () { pb.disabled = true; A.admin.markPaid(id).then(function () { A.toast("Marked as paid"); return load(true); }).then(function () { openOrder(id); }).catch(function (e) { pb.disabled = false; fail(e); }); };
+  }).catch(function (e) { closeDrawer(); fail(e); });
 }
 
 /* ---------- products ---------- */
-function loadProducts() {
-  $("#tab").innerHTML = '<div class="empty">Loading products…</div>';
-  A.admin.products().then(function (r) { PRODUCTS = r || []; drawProducts(); }).catch(authFail);
+function filtered() {
+  var q = pQ.trim().toLowerCase();
+  return PRODUCTS.filter(function (p) {
+    if (pCat && p.category !== pCat) return false;
+    if (pF === "noprice" && p.price != null) return false;
+    if (pF === "out" && !(p.stock != null && p.stock <= 0)) return false;
+    if (pF === "low" && !(p.stock != null && p.stock <= 3)) return false;
+    if (pF === "hidden" && p.active) return false;
+    return !q || (p.name + " " + p.brand + " " + catName(p.category)).toLowerCase().indexOf(q) > -1;
+  });
 }
-function drawProducts() {
-  var list = PRODUCTS.filter(function (p) { return (!pCat || p.category === pCat) && (!pQ || (p.name + " " + p.brand).toLowerCase().indexOf(pQ) > -1); });
-  var h = '<p class="note" style="margin-bottom:10px">Set a price to make a product buyable. Leave stock empty if you do not track it. Paste an image link to show a photo.</p>' +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><select id="fc" style="border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px"><option value="">All categories</option>' +
-    A.CAT.map(function (c) { return '<option value="' + c.slug + '"' + (pCat === c.slug ? " selected" : "") + ">" + A.esc(c.name) + "</option>"; }).join("") + '</select>' +
-    '<input id="fq" type="search" placeholder="Search" value="' + A.esc(pQ) + '" style="border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px;flex:1;min-width:140px">' +
-    '<button class="btn small primary" id="addp">Add product</button></div><div id="newp"></div>';
-  h += '<div class="tablewrap"><table style="min-width:900px"><thead><tr><th>Product</th><th>Price (' + A.esc(A.C.currency) + ')</th><th>Stock</th><th>Image link</th><th>Shown</th><th></th></tr></thead><tbody>' +
-    list.map(function (p) {
-      return '<tr data-id="' + A.esc(p.id) + '"><td><input data-k="name" value="' + A.esc(p.name) + '"><small>' + A.esc(p.brand) + " · " + A.esc((A.cat(p.category) || {}).name || p.category) + '</small></td>' +
-        '<td><input data-k="price" type="number" min="0" step="any" value="' + (p.price == null ? "" : p.price) + '"></td><td><input data-k="stock" type="number" min="0" value="' + (p.stock == null ? "" : p.stock) + '"></td>' +
-        '<td><input data-k="image_url" value="' + A.esc(p.image_url || "") + '" placeholder="https://…"></td><td><input data-k="active" type="checkbox"' + (p.active ? " checked" : "") + ' style="min-width:0;width:auto"></td>' +
-        '<td style="white-space:nowrap"><button class="btn small primary" data-sp="1">Save</button> <button class="btn small" data-dp="1">Delete</button></td></tr>';
-    }).join("") + "</tbody></table></div>";
-  $("#tab").innerHTML = h;
-  $("#fc").onchange = function (e) { pCat = e.target.value; drawProducts(); };
-  $("#fq").oninput = function (e) { pQ = e.target.value.toLowerCase(); var pos = e.target.selectionStart; drawProducts(); var q = $("#fq"); q.focus(); q.setSelectionRange(pos, pos); };
-  $("#addp").onclick = newProduct;
+function products() {
+  $("#view").innerHTML = '<div class="tb"><h2 class="t" style="margin:0">Products</h2><span class="sp"></span><button class="btn small" id="exp">Download list</button><button class="btn primary" id="addp">Add product</button></div>' +
+    '<div class="tb"><input id="pq" type="search" placeholder="Search products or brands" value="' + A.esc(pQ) + '">' +
+    '<select id="pc" aria-label="Category"><option value="">All categories</option>' + A.CAT.map(function (c) { return '<option value="' + c.slug + '"' + (pCat === c.slug ? " selected" : "") + ">" + A.esc(c.name) + "</option>"; }).join("") + "</select>" +
+    '<select id="pf" aria-label="Filter">' + [["", "All products"], ["noprice", "No price"], ["low", "Low stock (3 or fewer)"], ["out", "Out of stock"], ["hidden", "Hidden from store"]].map(function (x) { return '<option value="' + x[0] + '"' + (pF === x[0] ? " selected" : "") + ">" + x[1] + "</option>"; }).join("") + "</select></div>" +
+    '<div id="plist"></div><div id="bulk"></div>';
+  plist();
 }
-function rowVal(tr, k) { var el = tr.querySelector('[data-k="' + k + '"]'); return el.type === "checkbox" ? el.checked : el.value.trim(); }
-function saveRow(tr) {
-  var id = tr.getAttribute("data-id"), old = PRODUCTS.filter(function (x) { return x.id === id; })[0];
-  var price = rowVal(tr, "price"), stock = rowVal(tr, "stock");
-  var p = Object.assign({}, old, { name: rowVal(tr, "name"), price: price === "" ? null : Number(price), stock: stock === "" ? null : parseInt(stock, 10),
-    image_url: rowVal(tr, "image_url"), active: rowVal(tr, "active") });
-  if (!p.name) return A.toast("Enter a product name");
-  A.admin.saveProduct(p).then(function () { Object.assign(old, p); A.toast("Saved"); }).catch(authFail);
+function plist() {
+  var list = filtered(), shown = list.slice(0, pLimit), allSel = shown.length && shown.every(function (p) { return SEL[p.id]; });
+  $("#plist").innerHTML = '<p class="note" style="margin-bottom:8px">' + list.length + " of " + PRODUCTS.length + ' products. Change a price or stock number and it saves when you leave the box.</p><div class="tablewrap"><table style="min-width:760px"><thead><tr><th style="width:34px"><input type="checkbox" id="selall" aria-label="Select all"' + (allSel ? " checked" : "") + '></th><th>Product</th><th>Price (' + A.esc(A.C.currency) + ')</th><th>Stock</th><th>In store</th><th></th></tr></thead><tbody>' +
+    (shown.length ? shown.map(function (p) {
+      return '<tr data-id="' + A.esc(p.id) + '"><td><input type="checkbox" data-sel aria-label="Select ' + A.esc(p.name) + '"' + (SEL[p.id] ? " checked" : "") + '></td><td><div class="prod"><div class="pth">' + A.media(p) + '</div><div><b>' + A.esc(p.name) + "</b><small>" + A.esc(p.brand) + " · " + A.esc(catName(p.category)) + "</small></div></div></td>" +
+        '<td><input class="num" data-f="price" type="number" min="0" step="any" placeholder="No price" value="' + (p.price == null ? "" : p.price) + '"></td><td><input class="num" data-f="stock" type="number" min="0" step="1" placeholder="Not tracked" value="' + (p.stock == null ? "" : p.stock) + '"></td>' +
+        '<td><button class="chip" data-toggle aria-pressed="' + !!p.active + '">' + (p.active ? "Live" : "Hidden") + '</button></td><td><button class="btn small" data-edit>Edit</button></td></tr>';
+    }).join("") : '<tr><td colspan="6" class="empty">No products match. Use "Add product" or "Add many at once".</td></tr>') + "</tbody></table></div>" +
+    (list.length > shown.length ? '<div style="text-align:center;margin-top:10px"><button class="btn" id="more">Show more (' + (list.length - shown.length) + " left)</button></div>" : "");
+  bulkBar();
 }
-function newProduct() {
-  $("#newp").innerHTML = '<div class="panel" style="margin-bottom:14px"><h2>Add a product</h2><div class="two"><div class="field"><label for="npn">Name</label><input id="npn" placeholder="HP 15 Laptop, Core i5, 8GB, 512GB SSD"></div>' +
-    '<div class="field"><label for="npc">Category</label><select id="npc">' + A.CAT.map(function (c) { return '<option value="' + c.slug + '"' + (pCat === c.slug ? " selected" : "") + ">" + A.esc(c.name) + "</option>"; }).join("") + "</select></div></div>" +
-    '<div class="two"><div class="field"><label for="npb">Brand</label><input id="npb" placeholder="HP"></div><div class="field"><label for="npp">Price</label><input id="npp" type="number" min="0" step="any"></div></div>' +
-    '<div class="field"><label for="npd">Short description</label><input id="npd"></div><button class="btn primary" id="npsave">Save product</button></div>';
-  $("#npsave").onclick = function () {
-    var name = $("#npn").value.trim(), brand = $("#npb").value.trim();
-    if (!name || !brand) return A.toast("Enter a name and a brand");
-    var cat = $("#npc").value, price = $("#npp").value;
-    var p = { id: cat + "-" + A.slug(name) + "-" + Math.random().toString(36).slice(2, 6), category: cat, brand: brand, name: name, description: $("#npd").value.trim(),
-      price: price === "" ? null : Number(price), stock: null, image_url: "", active: true };
-    A.admin.saveProduct(p).then(function () { A.toast("Product added"); loadProducts(); }).catch(authFail);
+function bulkBar() {
+  var ids = Object.keys(SEL).filter(function (k) { return SEL[k]; });
+  $("#bulk").innerHTML = ids.length ? '<div class="bulk"><b>' + ids.length + ' selected</b><input id="bp" type="number" min="0" placeholder="Price"><button class="btn" id="bpa">Set price</button><input id="bs" type="number" min="0" placeholder="Stock"><button class="btn" id="bsa">Set stock</button><button class="btn" id="bshow">Show in store</button><button class="btn" id="bhide">Hide</button><button class="btn" id="bdel">Delete</button><button class="btn" id="bclear">Clear</button></div>' : "";
+}
+function selIds() { return Object.keys(SEL).filter(function (k) { return SEL[k]; }); }
+function patchLocal(ids, patch) { PRODUCTS.forEach(function (p) { if (ids.indexOf(p.id) > -1) Object.assign(p, patch); }); }
+function bulk(patch, msg) {
+  var ids = selIds(); if (!ids.length) return;
+  A.admin.updateProducts(ids, patch).then(function () { patchLocal(ids, patch); A.toast(msg + " (" + ids.length + ")"); plist(); }).catch(fail);
+}
+function numOrNull(v) { v = String(v).trim().replace(/[,₦\s]/g, ""); return v === "" ? null : Number(v); }
+
+function productForm(p, isNew) {
+  var cat = p.category || pCat || A.CAT[0].slug;
+  drawer(isNew ? "Add a product" : "Edit product",
+    '<form id="pform"><div class="field"><label for="fn">Product name</label><input id="fn" required placeholder="e.g. HP 15 Laptop, Core i5, 8GB RAM, 512GB SSD" value="' + A.esc(p.name || "") + '"></div>' +
+    '<div class="two"><div class="field"><label for="fc">Category</label><select id="fc">' + A.CAT.map(function (c) { return '<option value="' + c.slug + '"' + (c.slug === cat ? " selected" : "") + ">" + A.esc(c.name) + "</option>"; }).join("") + '</select></div>' +
+    '<div class="field"><label for="fb">Brand</label><input id="fb" required list="brandlist" value="' + A.esc(p.brand || "") + '"><datalist id="brandlist"></datalist></div></div>' +
+    '<div class="two"><div class="field"><label for="fp">Price (' + A.esc(A.C.currency) + ')</label><input id="fp" type="number" min="0" step="any" placeholder="Leave empty for price on request" value="' + (p.price == null ? "" : p.price) + '"></div>' +
+    '<div class="field"><label for="fs">Stock quantity</label><input id="fs" type="number" min="0" step="1" placeholder="Leave empty if not tracked" value="' + (p.stock == null ? "" : p.stock) + '"></div></div>' +
+    '<div class="field"><label for="fd">Description</label><textarea id="fd" rows="4" placeholder="Key specs, what is in the box, warranty">' + A.esc(p.description || "") + '</textarea></div>' +
+    '<div class="field"><label>Photo</label><div class="imgbox"><div class="pv" id="pv"></div><div style="flex:1;min-width:200px;display:grid;gap:8px"><input type="file" id="ff" accept="image/*" aria-label="Upload a photo"><input id="fi" placeholder="or paste a photo link (https://…)" value="' + A.esc(p.image_url || "") + '"><span class="note" id="fnote">Photos are resized automatically. Leave empty to show a standard picture.</span></div></div></div>' +
+    '<label class="opt" style="margin-bottom:12px"><input type="checkbox" id="fa"' + (p.active === false ? "" : " checked") + '><span><b>Show in the store</b><br><span class="note">Untick to hide it without deleting.</span></span></label>' +
+    '<div class="actions"><button class="btn primary" id="fsave">Save product</button>' + (isNew ? "" : '<button type="button" class="btn" id="fdup">Duplicate</button><button type="button" class="btn" id="fdel">Delete</button>') + '</div></form>');
+  function brands() {
+    var c = A.cat($("#fc").value); $("#brandlist").innerHTML = (c ? c.brands : []).map(function (b) { return '<option value="' + A.esc(b) + '">'; }).join("");
+  }
+  function preview() {
+    var u = $("#fi").value.trim();
+    $("#pv").innerHTML = u ? '<img alt="" src="' + A.esc(u) + '">' : '<span class="note">No photo</span>';
+    var im = $("#pv img"); if (im) im.onerror = function () { $("#pv").innerHTML = '<span class="note">Cannot load link</span>'; };
+  }
+  brands(); preview();
+  $("#fc").onchange = brands; $("#fi").oninput = preview;
+  $("#ff").onchange = function (e) {
+    var f = e.target.files[0]; if (!f) return;
+    $("#fnote").textContent = "Uploading…"; $("#fsave").disabled = true;
+    A.admin.uploadImage(f).then(function (url) { $("#fi").value = url; preview(); $("#fnote").textContent = "Photo uploaded."; })
+      .catch(function (err) { $("#fnote").textContent = err.message; }).then(function () { $("#fsave").disabled = false; });
   };
+  function row(id) {
+    var price = numOrNull($("#fp").value), stock = numOrNull($("#fs").value);
+    return { id: id, category: $("#fc").value, brand: $("#fb").value.trim(), name: $("#fn").value.trim(), description: $("#fd").value.trim(),
+      price: price, stock: stock == null ? null : Math.max(0, Math.floor(stock)), image_url: $("#fi").value.trim(), active: $("#fa").checked };
+  }
+  $("#pform").onsubmit = function (e) {
+    e.preventDefault();
+    var r = row(isNew ? A.slug($("#fc").value + "-" + $("#fn").value).slice(0, 60) + "-" + Math.random().toString(36).slice(2, 6) : p.id);
+    if (!r.name || !r.brand) return A.toast("Enter a name and a brand.");
+    if (r.price != null && (isNaN(r.price) || r.price < 0)) return A.toast("Enter a valid price.");
+    $("#fsave").disabled = true;
+    A.admin.saveProducts([r]).then(function () {
+      var i = PRODUCTS.findIndex(function (x) { return x.id === r.id; });
+      if (i > -1) PRODUCTS[i] = Object.assign({}, PRODUCTS[i], r); else PRODUCTS.unshift(r);
+      closeDrawer(); A.toast(isNew ? "Product added" : "Product saved"); render();
+    }).catch(function (err) { $("#fsave").disabled = false; fail(err); });
+  };
+  var dup = $("#fdup");
+  if (dup) dup.onclick = function () { productForm(Object.assign({}, row(p.id), { name: ($("#fn").value.trim() || p.name) + " (copy)" }), true); };
+  var del = $("#fdel");
+  if (del) del.onclick = function () {
+    if (del.dataset.sure !== "1") { del.dataset.sure = "1"; del.textContent = "Tap again to delete"; return; }
+    A.admin.deleteProducts([p.id]).then(function () { PRODUCTS = PRODUCTS.filter(function (x) { return x.id !== p.id; }); closeDrawer(); A.toast("Product deleted"); render(); }).catch(fail);
+  };
+}
+function csvEscape(v) { v = v == null ? "" : String(v); return /[",\n\t]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+function download(name, text) {
+  var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+/* ---------- add many at once ---------- */
+var IMPORT = [];
+function norm(s) { return String(s || "").toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, ""); }
+function findCat(v) {
+  var n = norm(v); if (!n) return null;
+  return A.CAT.filter(function (c) { return norm(c.slug) === n || norm(c.name) === n || norm(c.singular) === n || norm(c.name) === n + "s"; })[0] || null;
+}
+function splitLine(line, d) {
+  var out = [], cur = "", q = false, i, ch;
+  for (i = 0; i < line.length; i++) {
+    ch = line.charAt(i);
+    if (q) { if (ch === '"') { if (line.charAt(i + 1) === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true; else if (ch === d) { out.push(cur); cur = ""; } else cur += ch;
+  }
+  out.push(cur); return out.map(function (x) { return x.trim(); });
+}
+function parseImport(text) {
+  var lines = text.replace(/\r/g, "").split("\n").filter(function (l) { return l.trim(); });
+  if (!lines.length) return [];
+  var d = lines[0].indexOf("\t") > -1 ? "\t" : ",";
+  var rows = lines.map(function (l) { return splitLine(l, d); });
+  if (norm(rows[0][0]) === "name" || norm(rows[0][0]) === "productname") rows.shift();
+  return rows.map(function (c, i) {
+    var cat = findCat(c[2]), price = numOrNull(c[3] || ""), stock = numOrNull(c[4] || ""), errs = [];
+    if (!c[0]) errs.push("name missing");
+    if (!c[1]) errs.push("brand missing");
+    if (!cat) errs.push("category not recognised");
+    if (price != null && (isNaN(price) || price < 0)) errs.push("price is not a number");
+    if (stock != null && (isNaN(stock) || stock < 0)) errs.push("stock is not a number");
+    var r = { name: c[0] || "", brand: c[1] || "", catText: c[2] || "", price: price, stock: stock == null || isNaN(stock) ? null : Math.floor(stock), description: c[5] || "", image_url: c[6] || "", errs: errs, n: i + 1 };
+    if (cat) { r.category = cat.slug; r.id = cat.slug + "-" + A.slug(r.brand + " " + r.name).slice(0, 70); }
+    return r;
+  });
+}
+function importView() {
+  $("#view").innerHTML = '<h2 class="t">Add many products at once</h2>' +
+    '<div class="panel" style="margin-bottom:14px"><p style="margin:0 0 8px">Copy rows from Excel or Google Sheets and paste them below. Use these columns, in this order:</p>' +
+    '<p class="note"><b>Name, Brand, Category, Price, Stock, Description, Photo link</b>. Only name, brand and category are needed. A product that already exists with the same brand and name is updated.</p>' +
+    '<p class="note" style="margin-top:6px">Categories: ' + A.esc(A.CAT.map(function (c) { return c.name; }).join(", ")) + '.</p>' +
+    '<div class="actions" style="margin:10px 0"><button class="btn small" id="tpl">Download a blank sheet</button></div>' +
+    '<textarea class="csv" id="csv" placeholder="HP 15 Laptop Core i5 8GB 512GB&#9;HP&#9;Laptops&#9;650000&#9;5&#9;Windows 11, 15.6 inch&#9;"></textarea>' +
+    '<div class="actions"><button class="btn primary" id="prev">Check my list</button></div></div><div id="prevbox"></div>';
+}
+function showPreview() {
+  var ok = IMPORT.filter(function (r) { return !r.errs.length; }), bad = IMPORT.length - ok.length;
+  $("#prevbox").innerHTML = !IMPORT.length ? '<div class="msg warn">Nothing to import. Paste your rows first.</div>' :
+    '<div class="panel"><h2>' + ok.length + " ready" + (bad ? ", " + bad + " need fixing" : "") + '</h2><div class="tablewrap" style="margin-bottom:12px"><table style="min-width:720px"><thead><tr><th>#</th><th>Name</th><th>Brand</th><th>Category</th><th>Price</th><th>Stock</th><th>Check</th></tr></thead><tbody>' +
+    IMPORT.map(function (r) { return "<tr><td>" + r.n + "</td><td>" + A.esc(r.name) + "</td><td>" + A.esc(r.brand) + "</td><td>" + A.esc(r.category ? catName(r.category) : r.catText) + "</td><td>" + (r.price == null ? "" : A.money(r.price)) + "</td><td>" + (r.stock == null ? "" : r.stock) + "</td><td>" + (r.errs.length ? '<span class="err">' + A.esc(r.errs.join(", ")) + "</span>" : '<span class="ok">OK</span>') + "</td></tr>"; }).join("") +
+    '</tbody></table></div>' + (ok.length ? '<button class="btn primary" id="doimp">Add ' + ok.length + " products</button>" : "") + (bad ? '<p class="note" style="margin-top:8px">Rows that need fixing are skipped. Fix them in your sheet and check again.</p>' : "") + "</div>";
 }
 
 /* ---------- settings ---------- */
-function loadSettings() {
-  A.getSettings().then(function (s) {
-    $("#tab").innerHTML = '<div class="panel" style="max-width:480px"><h2>Delivery</h2><div class="field"><label for="sf">Delivery fee (' + A.esc(A.C.currency) + ')</label><input id="sf" type="number" min="0" value="' + A.esc(s.delivery_fee || 0) + '"></div>' +
-      '<div class="field"><label for="sp">Store pickup address</label><input id="sp" value="' + A.esc(s.pickup_address || "") + '"></div><button class="btn primary" id="ss">Save settings</button></div>';
-    $("#ss").onclick = function () {
-      A.admin.saveSetting("delivery_fee", $("#sf").value || 0).then(function () { return A.admin.saveSetting("pickup_address", $("#sp").value.trim()); })
-        .then(function () { A.toast("Settings saved"); }).catch(authFail);
-    };
-  });
+function settings() {
+  $("#view").innerHTML = '<h2 class="t">Settings</h2><div class="two-col"><div class="panel"><h2>Delivery</h2><div class="field"><label for="sf">Delivery fee (' + A.esc(A.C.currency) + ')</label><input id="sf" type="number" min="0" value="' + A.esc(SETTINGS.delivery_fee || 0) + '"></div>' +
+    '<div class="field"><label for="sp">Store pickup address</label><input id="sp" value="' + A.esc(SETTINGS.pickup_address || "") + '"></div><button class="btn primary" id="ss">Save settings</button></div>' +
+    '<div class="panel"><h2>Change my password</h2><form id="pw"><div class="field"><label for="p1">New password</label><input id="p1" type="password" minlength="8" autocomplete="new-password" required></div><div class="field"><label for="p2">Repeat new password</label><input id="p2" type="password" autocomplete="new-password" required></div><button class="btn primary">Change password</button></form>' +
+    '<p class="note" style="margin-top:8px">Use at least 8 characters. Do this once after your first login.</p></div></div>' +
+    '<p class="note" style="margin-top:14px">Phone number, WhatsApp, address and bank details for transfers are in <b>config.js</b>.</p>';
 }
 
+/* ---------- events ---------- */
 document.addEventListener("click", function (e) {
-  var t = e.target.closest("button"); if (!t) return;
-  if (t.hasAttribute("data-f")) { oFilter = t.getAttribute("data-f"); drawOrders(); }
-  else if (t.hasAttribute("data-open")) openOrder(t.getAttribute("data-open"));
-  else if (t.hasAttribute("data-sp")) saveRow(t.closest("tr"));
-  else if (t.hasAttribute("data-dp")) {
-    if (t.dataset.sure !== "1") { t.dataset.sure = "1"; t.textContent = "Confirm"; return; }
-    var id = t.closest("tr").getAttribute("data-id");
-    A.admin.deleteProduct(id).then(function () { A.toast("Deleted"); loadProducts(); }).catch(authFail);
+  var t = e.target, b;
+  if ((b = t.closest("[data-tab]"))) return go(b.dataset.tab);
+  if ((b = t.closest("[data-jump]"))) {
+    var j = b.dataset.jump.split(":"); e.preventDefault();
+    if (j[0] === "orders") { oF = j[1]; oQ = ""; } if (j[0] === "products") { pF = j[1]; pQ = ""; pCat = ""; }
+    return go(j[0]);
+  }
+  if ((b = t.closest("[data-order]"))) return openOrder(b.dataset.order);
+  if ((b = t.closest("[data-of]"))) { oF = b.dataset.of; render(); return; }
+  var tr = t.closest("tr[data-id]"), id = tr && tr.dataset.id, p = id && PRODUCTS.filter(function (x) { return x.id === id; })[0];
+  if (t.closest("[data-edit]") && p) return productForm(p, false);
+  if (t.closest("[data-toggle]") && p) {
+    var nv = !p.active; A.admin.updateProducts([id], { active: nv }).then(function () { p.active = nv; plist(); A.toast(nv ? "Now showing in store" : "Hidden from store"); }).catch(fail); return;
+  }
+  if (t.closest("#addp")) return productForm({ active: true }, true);
+  if (t.closest("#more")) { pLimit += 60; return plist(); }
+  if (t.closest("#refresh")) { A.toast("Refreshing…"); return load(true); }
+  if (t.closest("#out")) { A.auth.signOut(); location.href = "profile.html"; return; }
+  if (t.closest("#exp")) {
+    var head = ["name", "brand", "category", "price", "stock", "description", "photo_link", "in_store"];
+    return download("products.csv", [head.join(",")].concat(PRODUCTS.map(function (x) { return [x.name, x.brand, x.category, x.price, x.stock, x.description, x.image_url, x.active ? "yes" : "no"].map(csvEscape).join(","); })).join("\n"));
+  }
+  if (t.closest("#tpl")) return download("products-template.csv", "Name,Brand,Category,Price,Stock,Description,Photo link\nHP 15 Laptop Core i5 8GB 512GB,HP,Laptops,650000,5,Windows 11 and 15.6 inch screen,\nAPC Back-UPS 650VA,APC,UPS & Stabilizers,45000,10,Protects against power cuts,\n");
+  if (t.closest("#prev")) { IMPORT = parseImport($("#csv").value); return showPreview(); }
+  if (t.closest("#doimp")) {
+    var rows = IMPORT.filter(function (r) { return !r.errs.length; }).map(function (r) { return { id: r.id, category: r.category, brand: r.brand, name: r.name, description: r.description, price: r.price, stock: r.stock, image_url: r.image_url, active: true }; });
+    var seen = {}; rows = rows.filter(function (r) { if (seen[r.id]) return false; seen[r.id] = 1; return true; });
+    t.closest("#doimp").disabled = true;
+    A.admin.saveProducts(rows).then(function () { A.toast(rows.length + " products added or updated"); IMPORT = []; pF = ""; pQ = ""; pCat = ""; return load(true).then(function () { go("products"); }); }).catch(function (err) { $("#doimp").disabled = false; fail(err); });
+    return;
+  }
+  if (t.closest("#ss")) {
+    A.admin.saveSetting("delivery_fee", $("#sf").value || 0).then(function () { return A.admin.saveSetting("pickup_address", $("#sp").value.trim()); })
+      .then(function () { SETTINGS.delivery_fee = $("#sf").value || 0; SETTINGS.pickup_address = $("#sp").value.trim(); A.toast("Settings saved"); }).catch(fail); return;
+  }
+  if (t.closest("#bpa")) { var v = numOrNull($("#bp").value); if (v == null || isNaN(v) || v < 0) return A.toast("Enter a price."); return bulk({ price: v }, "Price set"); }
+  if (t.closest("#bsa")) { var s = numOrNull($("#bs").value); if (s == null || isNaN(s) || s < 0) return A.toast("Enter a stock number."); return bulk({ stock: Math.floor(s) }, "Stock set"); }
+  if (t.closest("#bshow")) return bulk({ active: true }, "Now showing");
+  if (t.closest("#bhide")) return bulk({ active: false }, "Hidden");
+  if (t.closest("#bclear")) { SEL = {}; return plist(); }
+  if ((b = t.closest("#bdel"))) {
+    if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Tap again to delete " + selIds().length; return; }
+    var ids = selIds(); A.admin.deleteProducts(ids).then(function () { PRODUCTS = PRODUCTS.filter(function (x) { return ids.indexOf(x.id) < 0; }); SEL = {}; A.toast("Deleted"); plist(); }).catch(fail);
   }
 });
+document.addEventListener("change", function (e) {
+  var t = e.target;
+  if (t.id === "selall") { filtered().slice(0, pLimit).forEach(function (p) { SEL[p.id] = t.checked; }); return plist(); }
+  if (t.matches("[data-sel]")) { SEL[t.closest("tr").dataset.id] = t.checked; return bulkBar(); }
+  if (t.id === "pc") { pCat = t.value; pLimit = 60; return plist(); }
+  if (t.id === "pf") { pF = t.value; pLimit = 60; return plist(); }
+  if (t.matches("[data-f]")) {
+    var tr = t.closest("tr"), id = tr.dataset.id, p = PRODUCTS.filter(function (x) { return x.id === id; })[0], f = t.dataset.f, v = numOrNull(t.value);
+    if (v != null && (isNaN(v) || v < 0)) { A.toast("Enter a number that is 0 or more."); t.value = p[f] == null ? "" : p[f]; return; }
+    if (f === "stock" && v != null) v = Math.floor(v);
+    var patch = {}; patch[f] = v;
+    A.admin.updateProducts([id], patch).then(function () { p[f] = v; t.style.outline = "2px solid var(--ok)"; setTimeout(function () { t.style.outline = ""; }, 900); }).catch(function (err) { t.value = p[f] == null ? "" : p[f]; fail(err); });
+  }
+});
+document.addEventListener("input", function (e) {
+  if (e.target.id === "oq") { oQ = e.target.value; ordersList(); }
+  if (e.target.id === "pq") { pQ = e.target.value; pLimit = 60; plist(); }
+});
+document.addEventListener("submit", function (e) {
+  if (e.target.id === "pw") {
+    e.preventDefault();
+    var a = $("#p1").value, b = $("#p2").value;
+    if (a !== b) return A.toast("The two passwords do not match.");
+    A.admin.changePassword(a).then(function () { A.toast("Password changed"); e.target.reset(); }).catch(fail);
+  }
+});
+document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeDrawer(); });
+window.addEventListener("hashchange", function () { var h = location.hash.replace("#", ""); if (TABS.some(function (t) { return t[0] === h; }) && h !== view) { view = h; SEL = {}; if (!$("#app").hidden) render(); } });
+setInterval(function () { if (!document.hidden && !$("#app").hidden && !$("#drawerRoot").innerHTML && (view === "orders" || view === "overview")) load(true); }, 60000);
 
 gate();
 </script>

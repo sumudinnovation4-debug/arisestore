@@ -77,7 +77,9 @@ Promise.all([A.getProducts(), A.getSettings()]).then(function (r) {
     var p = PRODS.filter(function (x) { return x.id === id; })[0];
     if (p && p.price != null && A.inStock(p)) lines.push({ p: p, q: cart[id] });
   });
-  if (!lines.length) { document.querySelector("main").innerHTML = '<div class="empty">Your cart is empty. <a href="shop.html">Start shopping</a></div>'; return; }
+  if (!lines.length) { document.querySelector("main").innerHTML = Object.keys(cart).length
+    ? '<div class="empty">The items in your cart do not have a price yet, so they cannot be paid for online. <a href="cart.html">Go to your cart</a> to send us a price request.</div>'
+    : '<div class="empty">Your cart is empty. <a href="shop.html">Start shopping</a></div>'; return; }
   $("#items").innerHTML = lines.map(function (l) {
     return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0"><span>' + l.q + " × " + A.esc(l.p.name) + "</span><span>" + A.money(l.p.price * l.q) + "</span></div>";
   }).join("");
@@ -117,7 +119,7 @@ document.getElementById("form").addEventListener("submit", function (ev) {
     address: dm === "delivery" ? f.address : "", city: dm === "delivery" ? f.city : "", state: dm === "delivery" ? f.state : "",
     payment_method: pm, items: lines.map(function (l) { return { id: l.p.id, qty: l.q }; })
   }).then(function (o) {
-    A.cart.clear();
+    lines.forEach(function (l) { A.cart.setQty(l.p.id, 0); });
     var base = "track.html?ref=" + encodeURIComponent(o.ref) + "&phone=" + encodeURIComponent(f.phone);
     if (pm !== "paystack") { location.href = base + "&new=1"; return; }
     return A.payOnline({

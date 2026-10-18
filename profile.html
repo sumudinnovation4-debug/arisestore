@@ -1,38 +1,86 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>My account | Arise and Shine Digital World</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="assets/style.css"></head>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+.pf{max-width:640px;margin:0 auto;padding-block:14px}
+.me{display:flex;align-items:center;gap:14px;background:var(--header);color:#fff;border-radius:14px;padding:18px}
+.av{width:60px;height:60px;border-radius:50%;background:var(--sun);color:#2b1700;display:grid;place-items:center;font:800 26px var(--font-display);flex:none}
+.me h1{font-size:20px;font-family:var(--font-body);font-weight:700;overflow-wrap:anywhere}
+.me p{margin:2px 0 0;opacity:.8;font-size:13px;overflow-wrap:anywhere}
+.me .role{display:inline-block;background:var(--sun);color:#2b1700;font-size:11px;font-weight:700;border-radius:99px;padding:1px 8px;margin-left:6px;vertical-align:middle}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;text-decoration:none}
+.stat b{display:block;font-size:22px;font-family:var(--font-display)}
+.stat span{font-size:12px;color:var(--muted)}
+.menu{background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-top:12px;overflow:hidden}
+.menu a,.menu button{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;text-decoration:none;color:var(--ink)}
+.menu a:last-child,.menu button:last-child{border-bottom:0}
+.menu .mi{width:36px;height:36px;border-radius:10px;background:var(--bg);display:grid;place-items:center;flex:none}
+.menu .mi svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.menu .tx{flex:1;min-width:0}
+.menu .tx b{display:block;font-weight:500}
+.menu .tx small{color:var(--muted);font-size:12px}
+.menu .chev{color:var(--muted);font-size:20px}
+.menu .danger{color:var(--bad)}
+.back{display:flex;align-items:center;gap:8px;background:none;border:0;padding:4px 0 12px;font-weight:700;font-size:16px}
+.guest{text-align:center;padding:22px 16px}
+.guest .av{margin:0 auto 10px;background:var(--bg);color:var(--muted)}
+.guest .av svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+</style></head>
 <body>
 <div id="site-header"></div>
-<main class="wrap block" style="max-width:640px" id="main"></main>
+<main class="wrap"><div class="pf" id="main"></div></main>
 <div id="site-footer"></div>
 <script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
 <script>
 A.layout("profile");
 var $ = A.$, qs = new URLSearchParams(location.search), next = qs.get("next");
 var main = document.getElementById("main");
+var PROFILE = {}, ORDERS = [], IS_ADMIN = false;
+var IC = {
+  orders: '<path d="M6 3h12l2 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7z"/><path d="M4 7h16M9 11h6"/>',
+  track: '<path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  pin: '<path d="M12 21s7-6.2 7-11.5a7 7 0 0 0-14 0C5 14.800 12 21 12 21z"/><circle cx="12" cy="9.500" r="2.500"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6z"/>',
+  out: '<path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M16 8l4 4-4 4M20 12H9"/>'
+};
+function ico(k) { return '<span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true">' + IC[k] + "</svg></span>"; }
+function row(href, k, title, sub, extra) {
+  return '<a href="' + href + '"' + (extra || "") + ">" + ico(k) + '<span class="tx"><b>' + title + "</b>" + (sub ? "<small>" + sub + "</small>" : "") + '</span><span class="chev">›</span></a>';
+}
 
-function done() { if (next && /^[a-z]+\.html$/.test(next)) location.href = next; else view(); }
-function view() { A.auth.user() ? account() : forms("in"); }
+function loadAccount() {
+  main.innerHTML = '<div class="empty">Loading your account…</div>';
+  return Promise.all([
+    A.auth.getProfile().then(function (p) { PROFILE = p || {}; }).catch(function () {}),
+    A.auth.myOrders().then(function (o) { ORDERS = o || []; }).catch(function () {}),
+    A.auth.isAdmin().then(function (v) { IS_ADMIN = v; }).catch(function () {})
+  ]).then(route);
+}
+function done() { if (next && /^[a-z]+\.html$/.test(next)) location.href = next; else loadAccount(); }
 
+/* ---------- signed out ---------- */
 function forms(mode, msg, cls) {
   var up = mode === "up";
-  main.innerHTML = '<h1 style="font-size:30px;margin-bottom:6px">' + (up ? "Create your account" : "Welcome back") + "</h1>" +
-    '<p class="note" style="margin-bottom:16px">' + (up ? "Save your delivery details and see all your orders in one place." : "Sign in to see your orders and check out faster.") + "</p>" +
-    '<div class="chips" style="margin-bottom:14px"><button class="chip" data-m="in" aria-pressed="' + !up + '">Sign in</button><button class="chip" data-m="up" aria-pressed="' + up + '">Create account</button></div>' +
+  main.innerHTML = '<div class="panel guest"><div class="av"><svg viewBox="0 0 24 24" aria-hidden="true">' + IC.user + "</svg></div>" +
+    '<h1 style="font-size:22px">' + (up ? "Create your account" : "Sign in") + '</h1><p class="note" style="margin:4px 0 0">' + (up ? "Save your details and keep all your orders in one place." : "See your orders and check out faster.") + "</p></div>" +
+    '<div class="chips" style="margin:14px 0;justify-content:center"><button class="chip" data-m="in" aria-pressed="' + !up + '">Sign in</button><button class="chip" data-m="up" aria-pressed="' + up + '">Create account</button></div>' +
     (msg ? '<div class="msg ' + (cls || "bad") + '" role="alert">' + A.esc(msg) + "</div>" : "") +
     '<form id="af" class="panel">' +
     (up ? '<div class="field"><label for="n">Full name</label><input id="n" required autocomplete="name"></div>' : "") +
     '<div class="field"><label for="e">Email</label><input id="e" type="email" required autocomplete="email"></div>' +
     '<div class="field"><label for="p">Password</label><input id="p" type="password" required minlength="6" autocomplete="' + (up ? "new-password" : "current-password") + '"></div>' +
-    '<button class="btn primary" style="width:100%" id="go">' + (up ? "Create account" : "Sign in") + "</button></form>" +
-    '<p class="note" style="margin-top:14px">Just want to check an order? <a href="track.html">Track an order</a> without an account.</p>';
+    '<button class="btn primary" style="width:100%;border-radius:99px" id="go">' + (up ? "Create account" : "Sign in") + "</button></form>" +
+    '<p class="note" style="margin-top:14px;text-align:center">Just checking an order? <a href="track.html">Track it without an account</a>.</p>';
   A.$$("[data-m]").forEach(function (b) { b.onclick = function () { forms(b.getAttribute("data-m")); }; });
   $("#af").onsubmit = function (ev) {
     ev.preventDefault();
-    var btn = $("#go"); btn.disabled = true;
+    $("#go").disabled = true;
     var email = $("#e").value, pw = $("#p").value;
     if (up) {
       A.auth.signUp(email, pw, $("#n").value.trim()).then(function (r) {
@@ -44,41 +92,64 @@ function forms(mode, msg, cls) {
   };
 }
 
-function account() {
-  var u = A.auth.user();
-  main.innerHTML = '<h1 style="font-size:30px">Hi' + (u.name ? ", " + A.esc(u.name.split(" ")[0]) : "") + '</h1><p class="note" style="margin-bottom:16px">' + A.esc(u.email) + "</p>" +
-    '<div id="adminLink"></div>' +
-    '<div class="panel" style="margin-bottom:16px"><h2>My orders</h2><div id="orders"><div class="empty">Loading…</div></div></div>' +
-    '<form id="pf" class="panel" style="margin-bottom:16px"><h2>Delivery details</h2>' +
-    '<div class="field"><label for="fn">Full name</label><input id="fn" autocomplete="name"></div>' +
-    '<div class="field"><label for="ph">Phone number</label><input id="ph" inputmode="tel" autocomplete="tel"></div>' +
-    '<div class="field"><label for="ad">Address</label><textarea id="ad" rows="2" autocomplete="street-address"></textarea></div>' +
-    '<div class="two"><div class="field"><label for="ci">Town or city</label><input id="ci"></div><div class="field"><label for="st">State</label><select id="st"><option value="">Select state</option>' +
-    A.STATES.map(function (s) { return "<option>" + s + "</option>"; }).join("") + "</select></div></div>" +
-    '<button class="btn primary">Save details</button></form>' +
-    '<div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="track.html">Track an order</a><button class="btn" id="out">Sign out</button></div>';
-
-  A.auth.isAdmin().then(function (ok) {
-    if (ok) $("#adminLink").innerHTML = '<a class="btn deep" href="admin.html" style="display:block;margin-bottom:16px">Open store admin</a>';
-  });
-  A.auth.getProfile().then(function (p) {
-    $("#fn").value = p.full_name || u.name || ""; $("#ph").value = p.phone || ""; $("#ad").value = p.address || "";
-    $("#ci").value = p.city || ""; $("#st").value = p.state || "";
-  }).catch(function () {});
-  A.auth.myOrders().then(function (list) {
-    $("#orders").innerHTML = list.length ? list.map(function (o) {
-      return '<a class="ordrow" href="track.html?ref=' + encodeURIComponent(o.ref) + "&phone=" + encodeURIComponent(o.phone) + '"><span><b>' + A.esc(o.ref) + "</b><br><small class=\"note\">" +
-        new Date(o.created_at).toLocaleDateString("en-NG", { dateStyle: "medium" }) + " · " + A.esc(A.STATUS[o.status] || o.status) + "</small></span><span><b>" + A.money(o.total) + "</b><br>" +
-        '<span class="tag ' + (o.payment_status === "paid" ? "ok" : "warn") + '">' + (o.payment_status === "paid" ? "Paid" : "Unpaid") + "</span></span></a>";
-    }).join("") : '<p class="note">No orders yet. <a href="categories.html">Start shopping</a></p>';
-  }).catch(function () { $("#orders").innerHTML = '<p class="note">Could not load your orders. Try again later.</p>'; });
-  $("#pf").onsubmit = function (ev) {
-    ev.preventDefault();
-    A.auth.saveProfile({ full_name: $("#fn").value.trim(), phone: $("#ph").value.trim(), address: $("#ad").value.trim(), city: $("#ci").value.trim(), state: $("#st").value })
-      .then(function () { A.toast("Details saved"); }).catch(function (e) { A.toast(e.message); });
-  };
-  $("#out").onclick = function () { A.auth.signOut(); forms("in"); };
+/* ---------- signed in ---------- */
+function displayName(u) { return PROFILE.full_name || u.name || u.email.split("@")[0]; }
+function home() {
+  var u = A.auth.user(), name = displayName(u), paid = ORDERS.filter(function (o) { return o.status !== "delivered" && o.status !== "cancelled"; }).length;
+  main.innerHTML =
+    '<div class="me"><div class="av">' + A.esc(name.charAt(0).toUpperCase()) + '</div><div style="min-width:0"><h1>' + A.esc(name) + (IS_ADMIN ? '<span class="role">Owner</span>' : "") + "</h1><p>" + A.esc(u.email) + "</p></div></div>" +
+    '<div class="stats"><a class="stat" href="#orders"><b>' + ORDERS.length + '</b><span>Orders</span></a><a class="stat" href="#orders"><b>' + paid + '</b><span>In progress</span></a><a class="stat" href="cart.html"><b>' + A.cart.count() + "</b><span>In cart</span></a></div>" +
+    '<div class="menu">' +
+    row("#orders", "orders", "My orders", ORDERS.length ? ORDERS.length + (ORDERS.length === 1 ? " order" : " orders") : "No orders yet") +
+    row("track.html", "track", "Track an order", "Use an order number") +
+    row("#details", "user", "Personal details", A.esc([PROFILE.full_name || u.name, PROFILE.phone].filter(Boolean).join(" · ") || "Add your name and phone")) +
+    row("#address", "pin", "Delivery address", A.esc([PROFILE.address, PROFILE.city, PROFILE.state].filter(Boolean).join(", ") || "Add where we deliver")) +
+    (A.C.whatsapp ? row("https://wa.me/" + A.esc(A.C.whatsapp), "chat", "Contact the store", "Chat on WhatsApp", ' target="_blank" rel="noopener"') : "") +
+    (IS_ADMIN ? row("admin.html", "shield", "Store admin", "Orders, products and prices") : "") + "</div>" +
+    '<div class="menu"><button id="out" class="danger">' + ico("out") + '<span class="tx"><b>Sign out</b></span></button></div>';
+  $("#out").onclick = function () { A.auth.signOut(); IS_ADMIN = false; PROFILE = {}; ORDERS = []; location.hash = ""; forms("in"); };
 }
-view();
+function sub(title, body) {
+  main.innerHTML = '<button class="back" id="back"><span aria-hidden="true">‹</span> ' + A.esc(title) + "</button>" + body;
+  $("#back").onclick = function () { location.hash = ""; };
+}
+function saveProfile(patch, okText) {
+  var next_ = Object.assign({}, PROFILE, patch);
+  return A.auth.saveProfile({ full_name: next_.full_name || "", phone: next_.phone || "", address: next_.address || "", city: next_.city || "", state: next_.state || "" })
+    .then(function () { PROFILE = next_; A.toast(okText); location.hash = ""; })
+    .catch(function (e) { A.toast("Could not save: " + e.message); });
+}
+function details() {
+  var u = A.auth.user();
+  sub("Personal details", '<form id="pf" class="panel"><div class="field"><label for="fn">Full name</label><input id="fn" autocomplete="name" value="' + A.esc(PROFILE.full_name || u.name || "") + '"></div>' +
+    '<div class="field"><label for="em">Email</label><input id="em" value="' + A.esc(u.email) + '" disabled></div>' +
+    '<div class="field"><label for="ph">Phone number</label><input id="ph" inputmode="tel" autocomplete="tel" value="' + A.esc(PROFILE.phone || "") + '"></div>' +
+    '<button class="btn primary" style="width:100%;border-radius:99px">Save</button></form>');
+  $("#pf").onsubmit = function (e) { e.preventDefault(); saveProfile({ full_name: $("#fn").value.trim(), phone: $("#ph").value.trim() }, "Details updated"); };
+}
+function address() {
+  sub("Delivery address", '<form id="pf" class="panel"><div class="field"><label for="ad">Street address</label><textarea id="ad" rows="2" autocomplete="street-address">' + A.esc(PROFILE.address || "") + "</textarea></div>" +
+    '<div class="two"><div class="field"><label for="ci">Town or city</label><input id="ci" autocomplete="address-level2" value="' + A.esc(PROFILE.city || "") + '"></div><div class="field"><label for="st">State</label><select id="st"><option value="">Select state</option>' +
+    A.STATES.map(function (s) { return "<option" + (s === PROFILE.state ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select></div></div>" +
+    '<button class="btn primary" style="width:100%;border-radius:99px">Save address</button></form>');
+  $("#pf").onsubmit = function (e) { e.preventDefault(); saveProfile({ address: $("#ad").value.trim(), city: $("#ci").value.trim(), state: $("#st").value }, "Address saved"); };
+}
+function orders() {
+  sub("My orders", '<div class="panel">' + (ORDERS.length ? ORDERS.map(function (o) {
+    return '<a class="ordrow" href="track.html?ref=' + encodeURIComponent(o.ref) + "&phone=" + encodeURIComponent(o.phone) + '"><span><b>' + A.esc(o.ref) + '</b><br><small class="note">' +
+      new Date(o.created_at).toLocaleDateString("en-NG", { dateStyle: "medium" }) + " · " + A.esc(A.STATUS[o.status] || o.status) + "</small></span><span style=\"text-align:right\"><b>" + A.money(o.total) + "</b><br>" +
+      '<span class="tag ' + (o.payment_status === "paid" ? "ok" : "warn") + '">' + (o.payment_status === "paid" ? "Paid" : "Unpaid") + "</span></span></a>";
+  }).join("") : '<div class="empty">No orders yet. <a href="categories.html">Start shopping</a></div>') + "</div>");
+}
+
+function route() {
+  var u = A.auth.user();
+  if (!u) { forms("in"); return; }
+  var h = location.hash.replace("#", "");
+  if (h === "details") details(); else if (h === "address") address(); else if (h === "orders") orders(); else home();
+}
+window.addEventListener("hashchange", route);
+
+if (A.auth.user()) loadAccount(); else route();
 </script>
 </body></html>
