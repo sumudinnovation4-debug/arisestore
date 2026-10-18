@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Checkout | Arise and Shine Digital World</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<div id="site-header"></div>
+<main class="wrap block">
+  <h1 style="font-size:32px;margin-bottom:16px">Checkout</h1>
+  <div id="err" class="msg bad" hidden role="alert"></div>
+  <form id="form" class="layout2" novalidate>
+    <div>
+      <div class="panel" style="margin-bottom:16px">
+        <h2>Your details</h2>
+        <div class="field"><label for="name">Full name</label><input id="name" required autocomplete="name"></div>
+        <div class="two">
+          <div class="field"><label for="phone">Phone number</label><input id="phone" required inputmode="tel" autocomplete="tel" placeholder="0801 234 5678"></div>
+          <div class="field"><label for="email">Email</label><input id="email" type="email" required autocomplete="email"></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:16px">
+        <h2>Delivery</h2>
+        <div class="opts">
+          <label class="opt"><input type="radio" name="dm" value="delivery" checked><span><b>Deliver to me</b><br><span class="note" id="feeNote"></span></span></label>
+          <label class="opt"><input type="radio" name="dm" value="pickup"><span><b>Pick up from the store</b><br><span class="note" id="pickNote">No delivery fee</span></span></label>
+        </div>
+        <div id="addr">
+          <div class="field"><label for="address">Delivery address</label><textarea id="address" rows="2" autocomplete="street-address"></textarea></div>
+          <div class="two">
+            <div class="field"><label for="city">Town or city</label><input id="city" autocomplete="address-level2"></div>
+            <div class="field"><label for="state">State</label><select id="state"></select></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Payment</h2>
+        <div class="opts" id="pay"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Order summary</h2>
+      <div id="items"></div>
+      <div class="sum" id="sum" style="margin:14px 0"></div>
+      <button class="btn primary" id="place" style="width:100%">Place order and pay</button>
+      <p class="note" style="margin-top:10px">You will get an order number to track your order.</p>
+    </div>
+  </form>
+</main>
+<div id="site-footer"></div>
+<script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
+<script>
+A.layout("cart");
+var $ = A.$, STATES = ["Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno","Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","FCT Abuja","Gombe","Imo","Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos","Nasarawa","Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto","Taraba","Yobe","Zamfara"];
+$("#state").innerHTML = '<option value="">Select state</option>' + STATES.map(function (s) { return "<option>" + s + "</option>"; }).join("");
+var bank = A.C.bank || {}, hasBank = !!bank.accountNumber, canOnline = A.canPayOnline();
+var payHtml = "";
+if (canOnline) payHtml += '<label class="opt"><input type="radio" name="pm" value="paystack" checked><span><b>Pay now by card or bank (Paystack)</b><br><span class="note">' + (A.LIVE ? "Secure payment window opens after you place the order." : "Demo: payment is simulated.") + "</span></span></label>";
+if (hasBank) payHtml += '<label class="opt"><input type="radio" name="pm" value="transfer"' + (canOnline ? "" : " checked") + '><span><b>Pay by bank transfer</b><br><span class="note">Transfer to our account and we confirm your payment.</span></span></label>';
+if (!payHtml) payHtml = '<p class="msg warn">Online payment is not set up yet. Add the Paystack public key or bank details in config.js.</p>';
+$("#pay").innerHTML = payHtml;
+
+var PRODS = [], SET = {}, lines = [];
+function totals() {
+  var dm = document.querySelector('input[name="dm"]:checked').value;
+  var sub = lines.reduce(function (n, l) { return n + l.p.price * l.q; }, 0);
+  var fee = dm === "delivery" ? A.deliveryFee(SET) : 0;
+  $("#sum").innerHTML = "<div><span>Subtotal</span><span>" + A.money(sub) + "</span></div><div><span>Delivery</span><span>" + (dm === "delivery" ? A.money(fee) : "Free") + '</span></div><div class="tot"><span>Total</span><span>' + A.money(sub + fee) + "</span></div>";
+  $("#addr").hidden = dm !== "delivery";
+}
+function show(m) { var e = $("#err"); e.textContent = m; e.hidden = !m; if (m) e.scrollIntoView({ behavior: "smooth", block: "center" }); }
+
+Promise.all([A.getProducts(), A.getSettings()]).then(function (r) {
+  PRODS = r[0]; SET = r[1];
+  var cart = A.cart.get();
+  Object.keys(cart).forEach(function (id) {
+    var p = PRODS.filter(function (x) { return x.id === id; })[0];
+    if (p && p.price != null && A.inStock(p)) lines.push({ p: p, q: cart[id] });
+  });
+  if (!lines.length) { document.querySelector("main").innerHTML = '<div class="empty">Your cart is empty. <a href="shop.html">Start shopping</a></div>'; return; }
+  $("#items").innerHTML = lines.map(function (l) {
+    return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0"><span>' + l.q + " × " + A.esc(l.p.name) + "</span><span>" + A.money(l.p.price * l.q) + "</span></div>";
+  }).join("");
+  $("#feeNote").textContent = "Delivery fee: " + A.money(A.deliveryFee(SET));
+  if (SET.pickup_address) $("#pickNote").textContent = "No delivery fee. " + SET.pickup_address;
+  totals();
+}).catch(function (e) { show("Could not load your cart. " + e.message); });
+var me = A.auth.user();
+if (me) {
+  $("#email").value = me.email;
+  A.auth.getProfile().then(function (p) {
+    if (p.full_name || me.name) $("#name").value = p.full_name || me.name;
+    if (p.phone) $("#phone").value = p.phone;
+    if (p.address) $("#address").value = p.address;
+    if (p.city) $("#city").value = p.city;
+    if (p.state) $("#state").value = p.state;
+  }).catch(function () {});
+} else {
+  var gn = document.createElement("p"); gn.className = "note"; gn.style.marginBottom = "12px";
+  gn.innerHTML = 'Have an account? <a href="profile.html?next=checkout.html">Sign in</a> to fill these in and keep your orders in one place. You can also check out as a guest.';
+  document.querySelector("#form").parentNode.insertBefore(gn, document.querySelector("#form"));
+}
+Array.prototype.forEach.call(document.querySelectorAll('input[name="dm"]'), function (r) { r.addEventListener("change", totals); });
+
+document.getElementById("form").addEventListener("submit", function (ev) {
+  ev.preventDefault(); show("");
+  var pmEl = document.querySelector('input[name="pm"]:checked');
+  var dm = document.querySelector('input[name="dm"]:checked').value;
+  var f = { name: $("#name").value.trim(), phone: $("#phone").value.trim(), email: $("#email").value.trim(), address: $("#address").value.trim(), city: $("#city").value.trim(), state: $("#state").value };
+  if (!f.name || f.phone.replace(/\D/g, "").length < 10 || !/^\S+@\S+\.\S+$/.test(f.email)) return show("Enter your name, a phone number with at least 10 digits, and a valid email.");
+  if (dm === "delivery" && (!f.address || !f.city || !f.state)) return show("Enter your delivery address, town and state, or choose pickup.");
+  if (!pmEl) return show("Choose a payment method.");
+  var btn = $("#place"); btn.disabled = true; btn.textContent = "Placing order…";
+  var pm = pmEl.value;
+  A.createOrder({
+    customer_name: f.name, phone: f.phone, email: f.email, delivery_method: dm,
+    address: dm === "delivery" ? f.address : "", city: dm === "delivery" ? f.city : "", state: dm === "delivery" ? f.state : "",
+    payment_method: pm, items: lines.map(function (l) { return { id: l.p.id, qty: l.q }; })
+  }).then(function (o) {
+    A.cart.clear();
+    var base = "track.html?ref=" + encodeURIComponent(o.ref) + "&phone=" + encodeURIComponent(f.phone);
+    if (pm !== "paystack") { location.href = base + "&new=1"; return; }
+    return A.payOnline({
+      ref: o.ref, email: f.email, total: o.total,
+      onDone: function () { A.verifyPayment(o.ref).then(function () { location.href = base + "&paid=1"; }); },
+      onClose: function () { location.href = base + "&new=1"; }
+    }).catch(function () { location.href = base + "&new=1"; });
+  }).catch(function (e) { btn.disabled = false; btn.textContent = "Place order and pay"; show(e.message); });
+});
+</script>
+</body></html>

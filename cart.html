@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your cart | Arise and Shine Digital World</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<div id="site-header"></div>
+<main class="wrap block">
+  <h1 style="font-size:32px;margin-bottom:16px">Your cart</h1>
+  <div class="layout2">
+    <div class="panel lines" id="lines"><div class="empty">Loading…</div></div>
+    <div class="panel"><h2>Summary</h2><div class="sum" id="sum"></div>
+      <p class="note" style="margin:10px 0 14px">Delivery fee is added at checkout.</p>
+      <a class="btn primary" id="go" href="checkout.html" style="display:block">Go to checkout</a></div>
+  </div>
+</main>
+<div id="site-footer"></div>
+<script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
+<script>
+A.layout("cart");
+var PRODS = [];
+function render() {
+  var cart = A.cart.get(), ids = Object.keys(cart), sub = 0, h = "", valid = 0;
+  ids.forEach(function (id) {
+    var p = PRODS.filter(function (x) { return x.id === id; })[0];
+    if (!p || p.price == null || !A.inStock(p)) { A.cart.setQty(id, 0); return; }
+    var q = p.stock == null ? cart[id] : Math.min(cart[id], p.stock);
+    if (q !== cart[id]) A.cart.setQty(id, q);
+    valid++; sub += p.price * q;
+    h += '<div class="ln"><div class="th">' + A.media(p) + '</div><div class="info"><b><a href="product.html?id=' + encodeURIComponent(p.id) + '" style="text-decoration:none">' + A.esc(p.name) + "</a></b>" +
+      '<span class="note">' + A.money(p.price) + ' each</span></div><div class="qty"><button data-dec="' + A.esc(id) + '" aria-label="Fewer">−</button><span>' + q +
+      '</span><button data-inc="' + A.esc(id) + '" aria-label="More">+</button></div><b style="min-width:84px;text-align:right">' + A.money(p.price * q) +
+      '</b><button class="btn small" data-rm="' + A.esc(id) + '" aria-label="Remove ' + A.esc(p.name) + '">Remove</button></div>';
+  });
+  document.getElementById("lines").innerHTML = valid ? h : '<div class="empty">Your cart is empty. <a href="shop.html">Start shopping</a></div>';
+  document.getElementById("sum").innerHTML = '<div><span>Items</span><span>' + A.cart.count() + '</span></div><div class="tot"><span>Subtotal</span><span>' + A.money(sub) + "</span></div>";
+  var go = document.getElementById("go");
+  go.style.pointerEvents = valid ? "" : "none"; go.style.opacity = valid ? "" : ".5";
+  A.badge();
+}
+document.addEventListener("click", function (e) {
+  var t = e.target.closest("button"); if (!t) return;
+  var cart = A.cart.get(), id;
+  if ((id = t.getAttribute("data-inc"))) { A.cart.setQty(id, (cart[id] || 0) + 1); render(); }
+  else if ((id = t.getAttribute("data-dec"))) { A.cart.setQty(id, (cart[id] || 0) - 1); render(); }
+  else if ((id = t.getAttribute("data-rm"))) { A.cart.setQty(id, 0); render(); }
+});
+A.getProducts().then(function (l) { PRODS = l; render(); }).catch(function (e) {
+  document.getElementById("lines").innerHTML = '<div class="empty">Could not load your cart. ' + A.esc(e.message) + "</div>";
+});
+</script>
+</body></html>

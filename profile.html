@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My account | Arise and Shine Digital World</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<div id="site-header"></div>
+<main class="wrap block" style="max-width:640px" id="main"></main>
+<div id="site-footer"></div>
+<script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
+<script>
+A.layout("profile");
+var $ = A.$, qs = new URLSearchParams(location.search), next = qs.get("next");
+var main = document.getElementById("main");
+
+function done() { if (next && /^[a-z]+\.html$/.test(next)) location.href = next; else view(); }
+function view() { A.auth.user() ? account() : forms("in"); }
+
+function forms(mode, msg, cls) {
+  var up = mode === "up";
+  main.innerHTML = '<h1 style="font-size:30px;margin-bottom:6px">' + (up ? "Create your account" : "Welcome back") + "</h1>" +
+    '<p class="note" style="margin-bottom:16px">' + (up ? "Save your delivery details and see all your orders in one place." : "Sign in to see your orders and check out faster.") + "</p>" +
+    '<div class="chips" style="margin-bottom:14px"><button class="chip" data-m="in" aria-pressed="' + !up + '">Sign in</button><button class="chip" data-m="up" aria-pressed="' + up + '">Create account</button></div>' +
+    (msg ? '<div class="msg ' + (cls || "bad") + '" role="alert">' + A.esc(msg) + "</div>" : "") +
+    '<form id="af" class="panel">' +
+    (up ? '<div class="field"><label for="n">Full name</label><input id="n" required autocomplete="name"></div>' : "") +
+    '<div class="field"><label for="e">Email</label><input id="e" type="email" required autocomplete="email"></div>' +
+    '<div class="field"><label for="p">Password</label><input id="p" type="password" required minlength="6" autocomplete="' + (up ? "new-password" : "current-password") + '"></div>' +
+    '<button class="btn primary" style="width:100%" id="go">' + (up ? "Create account" : "Sign in") + "</button></form>" +
+    '<p class="note" style="margin-top:14px">Just want to check an order? <a href="track.html">Track an order</a> without an account.</p>';
+  A.$$("[data-m]").forEach(function (b) { b.onclick = function () { forms(b.getAttribute("data-m")); }; });
+  $("#af").onsubmit = function (ev) {
+    ev.preventDefault();
+    var btn = $("#go"); btn.disabled = true;
+    var email = $("#e").value, pw = $("#p").value;
+    if (up) {
+      A.auth.signUp(email, pw, $("#n").value.trim()).then(function (r) {
+        if (r.signedIn) done(); else forms("in", "Account created. Check your email to confirm it, then sign in.", "ok");
+      }).catch(function (e) { forms("up", e.message); });
+    } else {
+      A.auth.signIn(email, pw).then(done).catch(function (e) { forms("in", /invalid|wrong/i.test(e.message) ? "Wrong email or password." : e.message); });
+    }
+  };
+}
+
+function account() {
+  var u = A.auth.user();
+  main.innerHTML = '<h1 style="font-size:30px">Hi' + (u.name ? ", " + A.esc(u.name.split(" ")[0]) : "") + '</h1><p class="note" style="margin-bottom:16px">' + A.esc(u.email) + "</p>" +
+    '<div id="adminLink"></div>' +
+    '<div class="panel" style="margin-bottom:16px"><h2>My orders</h2><div id="orders"><div class="empty">Loading…</div></div></div>' +
+    '<form id="pf" class="panel" style="margin-bottom:16px"><h2>Delivery details</h2>' +
+    '<div class="field"><label for="fn">Full name</label><input id="fn" autocomplete="name"></div>' +
+    '<div class="field"><label for="ph">Phone number</label><input id="ph" inputmode="tel" autocomplete="tel"></div>' +
+    '<div class="field"><label for="ad">Address</label><textarea id="ad" rows="2" autocomplete="street-address"></textarea></div>' +
+    '<div class="two"><div class="field"><label for="ci">Town or city</label><input id="ci"></div><div class="field"><label for="st">State</label><select id="st"><option value="">Select state</option>' +
+    A.STATES.map(function (s) { return "<option>" + s + "</option>"; }).join("") + "</select></div></div>" +
+    '<button class="btn primary">Save details</button></form>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="track.html">Track an order</a><button class="btn" id="out">Sign out</button></div>';
+
+  A.auth.isAdmin().then(function (ok) {
+    if (ok) $("#adminLink").innerHTML = '<a class="btn deep" href="admin.html" style="display:block;margin-bottom:16px">Open store admin</a>';
+  });
+  A.auth.getProfile().then(function (p) {
+    $("#fn").value = p.full_name || u.name || ""; $("#ph").value = p.phone || ""; $("#ad").value = p.address || "";
+    $("#ci").value = p.city || ""; $("#st").value = p.state || "";
+  }).catch(function () {});
+  A.auth.myOrders().then(function (list) {
+    $("#orders").innerHTML = list.length ? list.map(function (o) {
+      return '<a class="ordrow" href="track.html?ref=' + encodeURIComponent(o.ref) + "&phone=" + encodeURIComponent(o.phone) + '"><span><b>' + A.esc(o.ref) + "</b><br><small class=\"note\">" +
+        new Date(o.created_at).toLocaleDateString("en-NG", { dateStyle: "medium" }) + " · " + A.esc(A.STATUS[o.status] || o.status) + "</small></span><span><b>" + A.money(o.total) + "</b><br>" +
+        '<span class="tag ' + (o.payment_status === "paid" ? "ok" : "warn") + '">' + (o.payment_status === "paid" ? "Paid" : "Unpaid") + "</span></span></a>";
+    }).join("") : '<p class="note">No orders yet. <a href="categories.html">Start shopping</a></p>';
+  }).catch(function () { $("#orders").innerHTML = '<p class="note">Could not load your orders. Try again later.</p>'; });
+  $("#pf").onsubmit = function (ev) {
+    ev.preventDefault();
+    A.auth.saveProfile({ full_name: $("#fn").value.trim(), phone: $("#ph").value.trim(), address: $("#ad").value.trim(), city: $("#ci").value.trim(), state: $("#st").value })
+      .then(function () { A.toast("Details saved"); }).catch(function (e) { A.toast(e.message); });
+  };
+  $("#out").onclick = function () { A.auth.signOut(); forms("in"); };
+}
+view();
+</script>
+</body></html>

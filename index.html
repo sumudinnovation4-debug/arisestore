@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Arise and Shine Digital World</title>
+<meta name="description" content="Laptops, printers, networking, audio and power accessories from HP, Dell, Lenovo, Apple, Canon, Epson, JBL, Anker and more.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<div id="site-header"></div>
+
+<section class="hero"><div class="wrap">
+  <h1>Computers, printers and power for the work you start today.</h1>
+  <p>Genuine brands from HP and Dell to Anker and APC. Order online, pay securely, and track your order from our store to your door.</p>
+  <form action="shop.html" role="search"><input name="q" type="search" placeholder="What do you need? e.g. HP laptop" aria-label="Search products"><button class="btn primary">Search</button></form>
+</div></section>
+
+<section class="block wrap" id="categories">
+  <div class="sechead"><h2>Shop by category</h2><a href="shop.html">See all products</a></div>
+  <div class="catgrid" id="catgrid"></div>
+</section>
+
+<section class="block wrap">
+  <div class="sechead"><h2>Ready to order</h2><a href="shop.html">Browse everything</a></div>
+  <div class="grid" id="featured"><div class="empty">Loading products…</div></div>
+</section>
+
+<section class="block wrap">
+  <div class="sechead"><h2>How ordering works</h2></div>
+  <div class="how">
+    <div><h3>1. Choose</h3><p>Pick your products by category or brand and add them to your cart.</p></div>
+    <div><h3>2. Pay securely</h3><p>Pay by card through Paystack, or by bank transfer if you prefer.</p></div>
+    <div><h3>3. Track</h3><p>Use your order number and phone number to follow your order until it arrives.</p></div>
+  </div>
+</section>
+
+<div id="site-footer"></div>
+<script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
+<script>
+A.layout("home");
+document.getElementById("catgrid").innerHTML = A.CAT.map(function (c) {
+  return '<a class="cat" href="shop.html?cat=' + c.slug + '"><span class="ic" style="--h:' + A.hue(c.slug) + '"><svg class="ico" viewBox="0 0 64 64" aria-hidden="true">' +
+    A.iconSvg(c.slug).replace(/^<svg[^>]*>|<\/svg>$/g, "") + '</svg></span><b>' + A.esc(c.name) + '</b><small>' + c.brands.length + ' brands</small></a>';
+}).join("");
+A.getProducts().then(function (list) {
+  var ready = list.filter(function (p) { return p.price != null && A.inStock(p); }).slice(0, 8);
+  var el = document.getElementById("featured");
+  el.innerHTML = ready.length ? ready.map(A.productCard).join("") : '<div class="empty">Products with prices will appear here once they are added in the admin page.</div>';
+}).catch(function (e) {
+  document.getElementById("featured").innerHTML = '<div class="empty">Could not load products. ' + A.esc(e.message) + "</div>";
+});
+</script>
+</body></html>

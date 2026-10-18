@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Categories | Arise and Shine Digital World</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<div id="site-header"></div>
+<main class="wrap block">
+  <div class="sechead"><h1 style="font-size:30px">Categories</h1><a href="shop.html">All products</a></div>
+  <div class="catgrid" id="catgrid"></div>
+</main>
+<div id="site-footer"></div>
+<script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
+<script>
+A.layout("categories");
+document.getElementById("catgrid").innerHTML = A.CAT.map(function (c) {
+  return '<a class="cat" href="shop.html?cat=' + c.slug + '"><span class="ic" style="--h:' + A.hue(c.slug) + '"><svg class="ico" viewBox="0 0 64 64" aria-hidden="true">' +
+    A.iconSvg(c.slug).replace(/^<svg[^>]*>|<\/svg>$/g, "") + '</svg></span><b>' + A.esc(c.name) + '</b><small>' + A.esc(c.brands.join(", ")) + '</small></a>';
+}).join("");
+</script>
+</body></html>
