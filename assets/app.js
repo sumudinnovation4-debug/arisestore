@@ -328,30 +328,66 @@
   function ad(path, o) { o = o || {}; return auth.token().then(function (t) { o.token = t; return sb(path, o); }); }
   admin.orders = function () { return ad("/rest/v1/orders?select=*&order=created_at.desc&limit=300"); };
   admin.events = function (id) { return ad("/rest/v1/order_events?order_id=eq." + encodeURIComponent(id) + "&order=created_at.asc"); };
-  admin.setStatus = function (id, status, note) {
-    return ad("/rest/v1/orders?id=eq." + encodeURIComponent(id), { method: "PATCH", body: { status: status }, prefer: "return=minimal" })
-      .then(function () { return ad("/rest/v1/order_events", { method: "POST", body: { order_id: id, status: status, note: note || STATUS[status] }, prefer: "return=minimal" }); });
+  function enc(x) { return encodeURIComponent(x); }
+  function inList(ids) { return enc("(" + ids.map(function (i) { return '"' + String(i).replace(/"/g, "") + '"'; }).join(",") + ")"); }
+  function restock(items) {
+    return Promise.all((items || []).map(function (it) {
+      return ad("/rest/v1/products?id=eq." + enc(it.id) + "&select=stock").then(function (r) {
+        if (r && r[0] && r[0].stock != null) return ad("/rest/v1/products?id=eq." + enc(it.id), { method: "PATCH", body: { stock: r[0].stock + (it.qty || 0) }, prefer: "return=minimal" });
+      });
+    }));
+  }
+  // order: the order row (needs id, status, items). Cancelling puts the stock back.
+  admin.setStatus = function (order, status, note) {
+    return ad("/rest/v1/orders?id=eq." + enc(order.id), { method: "PATCH", body: { status: status }, prefer: "return=minimal" })
+      .then(function () { return ad("/rest/v1/order_events", { method: "POST", body: { order_id: order.id, status: status, note: note || STATUS[status] }, prefer: "return=minimal" }); })
+      .then(function () { if (status === "cancelled" && order.status !== "cancelled") return restock(order.items); });
   };
   admin.markPaid = function (id) {
-    return ad("/rest/v1/orders?id=eq." + encodeURIComponent(id), { method: "PATCH", body: { payment_status: "paid" }, prefer: "return=minimal" })
+    return ad("/rest/v1/orders?id=eq." + enc(id), { method: "PATCH", body: { payment_status: "paid" }, prefer: "return=minimal" })
       .then(function () { return ad("/rest/v1/order_events", { method: "POST", body: { order_id: id, status: "confirmed", note: "Payment confirmed by the store" }, prefer: "return=minimal" }); });
   };
-  admin.products = function () { return ad("/rest/v1/products?select=*&order=category.asc,brand.asc,name.asc"); };
-  admin.saveProduct = function (p) { return ad("/rest/v1/products", { method: "POST", body: p, prefer: "resolution=merge-duplicates,return=minimal" }); };
-  admin.deleteProduct = function (id) { return ad("/rest/v1/products?id=eq." + encodeURIComponent(id), { method: "DELETE", prefer: "return=minimal" }); };
+  admin.products = function () { return ad("/rest/v1/products?select=*&order=category.asc,brand.asc,name.asc&limit=5000"); };
+  admin.saveProducts = function (rows) { return ad("/rest/v1/products", { method: "POST", body: rows, prefer: "resolution=merge-duplicates,return=minimal" }); };
+  admin.updateProducts = function (ids, patch) { return ad("/rest/v1/products?id=in." + inList(ids), { method: "PATCH", body: patch, prefer: "return=minimal" }); };
+  admin.deleteProducts = function (ids) { return ad("/rest/v1/products?id=in." + inList(ids), { method: "DELETE", prefer: "return=minimal" }); };
   admin.saveSetting = function (key, value) { return ad("/rest/v1/settings", { method: "POST", body: { key: key, value: String(value) }, prefer: "resolution=merge-duplicates,return=minimal" }); };
+  admin.changePassword = function (pw) { return ad("/auth/v1/user", { method: "PUT", body: { password: pw } }); };
+  function resizeImage(file, max) {
+    return new Promise(function (res, rej) {
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function () {
+        var k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement("canvas");
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(function (b) { b ? res(b) : rej(new Error("Could not read that image.")); }, "image/jpeg", 0.85);
+      };
+      img.onerror = function () { rej(new Error("That file is not an image.")); };
+      img.src = url;
+    });
+  }
+  // Uploads a photo to the public "products" storage bucket and returns its web address.
+  admin.uploadImage = function (file) {
+    var base = C.supabaseUrl.replace(/\/$/, ""), path = "p/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + ".jpg";
+    return resizeImage(file, 900).then(function (blob) {
+      return auth.token().then(function (t) {
+        return fetch(base + "/storage/v1/object/products/" + path, { method: "POST", headers: { apikey: C.supabaseAnonKey, Authorization: "Bearer " + t, "Content-Type": "image/jpeg" }, body: blob });
+      });
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (x) { throw new Error("Photo upload failed. Run supabase/storage-images.sql once in Supabase. " + x.slice(0, 100)); });
+      return base + "/storage/v1/object/public/products/" + path;
+    });
+  };
 
   // ---------- product card ----------
   A.inStock = function (p) { return p.stock == null || p.stock > 0; };
   A.productCard = function (p) {
     var link = "product.html?id=" + encodeURIComponent(p.id);
-    var buy = p.price != null && A.inStock(p);
     var price = p.price != null ? '<div class="price">' + A.money(p.price) + "</div>" : '<div class="price ask">Price on request</div>';
     var action;
-    if (buy) action = '<button class="cbtn" data-add="' + A.esc(p.id) + '">Add to cart</button>';
-    else if (p.price != null) action = '<span class="tag bad" style="margin-top:8px;align-self:flex-start">Out of stock</span>';
-    else if (C.whatsapp) action = '<a class="cbtn alt" target="_blank" rel="noopener" href="https://wa.me/' + A.esc(C.whatsapp) + "?text=" + encodeURIComponent("Hello, please send me the price for " + p.name) + '">Ask price</a>';
-    else action = '<a class="cbtn alt" href="' + link + '">View details</a>';
+    if (p.price != null && !A.inStock(p)) action = '<span class="tag bad" style="margin-top:8px;align-self:flex-start">Out of stock</span>';
+    else action = '<button class="cbtn" data-add="' + A.esc(p.id) + '">Add to cart</button>';
     return '<article class="card"><a class="mlink" href="' + link + '" aria-label="' + A.esc(p.name) + '">' + A.media(p) + "</a>" +
       '<div class="body"><h3><a href="' + link + '">' + A.esc(p.name) + '</a></h3><span class="brand">' + A.esc(p.brand) + "</span>" + price + action + "</div></article>";
   };
