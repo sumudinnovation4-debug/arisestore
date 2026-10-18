@@ -58,12 +58,53 @@
     var c = A.cat(slug);
     return '<svg viewBox="0 0 64 64" aria-hidden="true">' + (c ? ICONS[c.icon] : ICONS.laptop) + "</svg>";
   };
-  A.media = function (p) {
-    var inner = p.image_url
-      ? '<img src="' + A.esc(p.image_url) + '" alt="' + A.esc(p.name) + '" loading="lazy" data-cat="' + A.esc(p.category) + '">'
-      : A.iconSvg(p.category);
-    return '<div class="media" style="--h:' + A.hue(p.category) + '">' + inner + "</div>";
+  A.iconInner = function (slug) { return A.iconSvg(slug).replace(/^<svg[^>]*>|<\/svg>$/g, ""); };
+  function wikiTitleFor(p) {
+    var c = A.cat(p.category); if (!c || !c.wiki || !c.wiki.length) return "";
+    var i = Math.max(0, c.brands.indexOf(p.brand));
+    return c.wiki[i % c.wiki.length];
+  }
+  // A product shows its own image_url if the owner set one. Otherwise a free-licensed
+  // photo from Wikipedia is loaded in the visitor's browser, and a category icon stays if that fails.
+  A.mediaFor = function (cat, title, alt, first) {
+    return '<div class="media" style="--h:' + A.hue(cat) + '"' + (title ? ' data-wiki="' + A.esc(title) + '" data-wiki2="' + A.esc(first || title) + '" data-alt="' + A.esc(alt) + '"' : "") + ">" + A.iconSvg(cat) + "</div>";
   };
+  A.media = function (p) {
+    if (p.image_url) return '<div class="media has-img" style="--h:' + A.hue(p.category) + '"><img src="' + A.esc(p.image_url) + '" alt="' + A.esc(p.name) + '" loading="lazy" data-cat="' + A.esc(p.category) + '"></div>';
+    var c = A.cat(p.category);
+    return A.mediaFor(p.category, wikiTitleFor(p), p.name, c && c.wiki ? c.wiki[0] : "");
+  };
+  var IMGKEY = "asdw_wiki_v1", imgCache = {}, pending = {};
+  try { imgCache = JSON.parse(localStorage.getItem(IMGKEY)) || {}; } catch (e) {}
+  function wikiUrl(title) {
+    if (Object.prototype.hasOwnProperty.call(imgCache, title)) return Promise.resolve(imgCache[title]);
+    if (pending[title]) return pending[title];
+    pending[title] = fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(title))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var u = (j && j.thumbnail && j.thumbnail.source) || "";
+        imgCache[title] = u;
+        try { localStorage.setItem(IMGKEY, JSON.stringify(imgCache)); } catch (e) {}
+        return u;
+      })
+      .catch(function () { return ""; });
+    return pending[title];
+  }
+  function hydrate() {
+    Array.prototype.slice.call(document.querySelectorAll("[data-wiki]")).forEach(function (el) {
+      var t = el.getAttribute("data-wiki"), t2 = el.getAttribute("data-wiki2");
+      el.removeAttribute("data-wiki");
+      wikiUrl(t).then(function (u) { return u || (t2 && t2 !== t ? wikiUrl(t2) : ""); }).then(function (u) {
+        if (!u) return;
+        var img = new Image(); img.alt = el.getAttribute("data-alt") || "";
+        img.onload = function () { el.innerHTML = ""; el.appendChild(img); el.classList.add("has-img"); };
+        img.src = u;
+      });
+    });
+  }
+  var hydT;
+  new MutationObserver(function () { clearTimeout(hydT); hydT = setTimeout(hydrate, 30); }).observe(document.documentElement, { childList: true, subtree: true });
+  setTimeout(hydrate, 0);
   document.addEventListener("error", function (e) {
     var t = e.target;
     if (t && t.tagName === "IMG" && t.dataset.cat) t.parentNode.innerHTML = A.iconSvg(t.dataset.cat);
@@ -85,7 +126,7 @@
     clear: function () { A.cart.set({}); },
     count: function () { var c = A.cart.get(); return Object.keys(c).reduce(function (n, k) { return n + c[k]; }, 0); }
   };
-  A.badge = function () { var b = $("#cartCount"); if (b) { var n = A.cart.count(); b.textContent = n; b.hidden = !n; } };
+  A.badge = function () { var n = A.cart.count(); $$("[data-cc]").forEach(function (b) { b.textContent = n; b.hidden = !n; }); };
 
   // ---------- Supabase (live) ----------
   function sb(path, o) {
@@ -303,17 +344,23 @@
   // ---------- product card ----------
   A.inStock = function (p) { return p.stock == null || p.stock > 0; };
   A.productCard = function (p) {
+    var link = "product.html?id=" + encodeURIComponent(p.id);
     var buy = p.price != null && A.inStock(p);
-    var price = p.price != null ? '<span class="price">' + A.money(p.price) + "</span>" : '<span class="price ask">Price on request</span>';
+    var price = p.price != null ? '<div class="price">' + A.money(p.price) + "</div>" : '<div class="price ask">Price on request</div>';
     var action;
-    if (buy) action = '<button class="btn small primary" data-add="' + A.esc(p.id) + '">Add to cart</button>';
-    else if (p.price != null) action = '<span class="tag bad">Out of stock</span>';
-    else if (C.whatsapp) action = '<a class="btn small" target="_blank" rel="noopener" href="https://wa.me/' + A.esc(C.whatsapp) + "?text=" +
-      encodeURIComponent("Hello, please send me the price for " + p.name) + '">Ask price</a>';
-    else action = '<a class="btn small" href="product.html?id=' + encodeURIComponent(p.id) + '">Details</a>';
-    return '<article class="card"><a href="product.html?id=' + encodeURIComponent(p.id) + '" aria-label="' + A.esc(p.name) + '">' + A.media(p) + "</a>" +
-      '<div class="body"><span class="brand">' + A.esc(p.brand) + '</span><h3><a href="product.html?id=' + encodeURIComponent(p.id) + '">' + A.esc(p.name) + "</a></h3>" +
-      '<p>' + A.esc(p.description || "") + '</p><div class="row">' + price + action + "</div></div></article>";
+    if (buy) action = '<button class="cbtn" data-add="' + A.esc(p.id) + '">Add to cart</button>';
+    else if (p.price != null) action = '<span class="tag bad" style="margin-top:8px;align-self:flex-start">Out of stock</span>';
+    else if (C.whatsapp) action = '<a class="cbtn alt" target="_blank" rel="noopener" href="https://wa.me/' + A.esc(C.whatsapp) + "?text=" + encodeURIComponent("Hello, please send me the price for " + p.name) + '">Ask price</a>';
+    else action = '<a class="cbtn alt" href="' + link + '">View details</a>';
+    return '<article class="card"><a class="mlink" href="' + link + '" aria-label="' + A.esc(p.name) + '">' + A.media(p) + "</a>" +
+      '<div class="body"><h3><a href="' + link + '">' + A.esc(p.name) + '</a></h3><span class="brand">' + A.esc(p.brand) + "</span>" + price + action + "</div></article>";
+  };
+  A.catStrip = function (active) {
+    return '<nav class="catstrip" aria-label="Categories"><div class="wrap"><div class="strip">' +
+      '<a class="sc' + (!active ? " on" : "") + '" href="shop.html"><span class="ic all"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span><span class="t">All</span></a>' +
+      A.CAT.map(function (c) {
+        return '<a class="sc' + (active === c.slug ? " on" : "") + '" href="shop.html?cat=' + c.slug + '"><span class="ic" style="--h:' + A.hue(c.slug) + '"><svg viewBox="0 0 64 64" aria-hidden="true">' + A.iconInner(c.slug) + '</svg></span><span class="t">' + A.esc(c.name) + "</span></a>";
+      }).join("") + "</div></div></nav>";
   };
   document.addEventListener("click", function (e) {
     var b = e.target.closest && e.target.closest("[data-add]");
@@ -328,16 +375,18 @@
     cart: '<path d="M3 4h2l2.4 11h10.2l2-8H6.2"/><circle cx="9" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/>',
     profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'
   };
-  A.layout = function (active) {
+  A.layout = function (active, opts) {
+    opts = opts || {};
     var h = $("#site-header"), f = $("#site-footer");
     if (h) {
       h.innerHTML =
-        (LIVE ? "" : '<div class="demo">Demo mode: orders, payments and accounts are simulated in this browser. Add your Supabase and Paystack keys in config.js to go live.</div>') +
+        (LIVE ? "" : '<div class="demo">Demo mode: add your Supabase and Paystack keys in config.js to go live.</div>') +
         '<header class="site"><div class="wrap">' +
-        '<a class="logo" href="index.html"><svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="10" fill="#12284a"/><path d="M6 27h28" stroke="#ffb347" stroke-width="2.5" stroke-linecap="round"/><path d="M11 27a9 9 0 0 1 18 0" fill="#ffb347"/><path d="M20 8v4M9 13l3 3M31 13l-3 3" stroke="#ffb347" stroke-width="2.5" stroke-linecap="round"/></svg>' +
+        '<a class="logo" href="index.html"><svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="10" fill="#fff"/><path d="M6 27h28" stroke="#12284a" stroke-width="2.5" stroke-linecap="round"/><path d="M11 27a9 9 0 0 1 18 0" fill="#ffb347"/><path d="M20 8v4M9 13l3 3M31 13l-3 3" stroke="#ffb347" stroke-width="2.5" stroke-linecap="round"/></svg>' +
         "<div><b>Arise and Shine</b><small>Digital World</small></div></a>" +
-        '<form class="hsearch" action="shop.html" role="search"><input name="q" type="search" placeholder="Search laptops, printers, JBL, Anker…" aria-label="Search products"></form>' +
-        "</div></header>";
+        '<form class="searchbar" action="shop.html" role="search"><input name="q" type="search" placeholder="Search products and brands" aria-label="Search products and brands" value="' + A.esc(opts.q || "") + '"><button aria-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg></button></form>' +
+        '<a class="hcart" href="cart.html" aria-label="Cart"><svg viewBox="0 0 24 24" aria-hidden="true">' + TAB.cart + '</svg><span class="badge" data-cc hidden>0</span></a>' +
+        "</div></header>" + (opts.strip ? A.catStrip(opts.strip === true ? "" : opts.strip) : "");
     }
     if (f) {
       var contact = "";
@@ -349,8 +398,8 @@
       f.innerHTML = '<footer class="site"><div class="wrap">' +
         "<div><h3>" + A.esc(C.name) + "</h3><p>Computers, printers, networking, audio and power accessories from trusted brands.</p></div>" +
         '<div><h3>Orders</h3><a href="track.html">Track your order</a><a href="profile.html">My account</a></div>' +
-        "<div><h3>Contact</h3>" + contact + "</div></div>" +
-        '<div class="copy">© ' + new Date().getFullYear() + " " + A.esc(C.name) + "</div></footer>";
+        "<div><h3>Contact</h3>" + contact + "</div></div></footer>" +
+        '<div class="copy">© ' + new Date().getFullYear() + " " + A.esc(C.name) + "</div>";
     }
     var old = $("#tabbar"); if (old) old.remove();
     var tabs = [["home", "Home", "index.html"], ["categories", "Categories", "categories.html"], ["cart", "Cart", "cart.html"], ["profile", "Profile", "profile.html"]];
@@ -358,7 +407,7 @@
     nav.id = "tabbar"; nav.className = "tabbar"; nav.setAttribute("aria-label", "App");
     nav.innerHTML = tabs.map(function (t) {
       return '<a href="' + t[2] + '"' + (active === t[0] ? ' aria-current="page"' : "") + '><svg viewBox="0 0 24 24" aria-hidden="true">' + TAB[t[0]] + "</svg>" + t[1] +
-        (t[0] === "cart" ? '<span class="badge" id="cartCount" hidden>0</span>' : "") + "</a>";
+        (t[0] === "cart" ? '<span class="badge" data-cc hidden>0</span>' : "") + "</a>";
     }).join("");
     document.body.appendChild(nav);
     A.badge();
