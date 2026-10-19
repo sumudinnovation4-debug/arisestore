@@ -11,11 +11,11 @@ window.STORE_CONFIG = {
   paystackPublicKey: "pk_test_31d8bf7e2bd93f737dca20a729c2390aa991154c",
 
   // Contact details shown in the footer and used for "Ask on WhatsApp" buttons.
-  whatsapp: "+2349134487573",   // international format without +, e.g. 2348012345678
-  phone: "09134487573",
+  whatsapp: "+2348167956341",   // international format without +, e.g. 2348012345678
+  phone: "08167956341",
   email: "alphastacks341@gmail.com",
   address: "",
 
   // Shown to customers who choose "Pay by bank transfer". Leave empty to hide that option.
-  bank: { bank: "", accountName: "", accountNumber: "" }
+  bank: { bank: "moniepoint", accountName: "Muhammad kamaldeen", accountNumber: "9134487575" }
 };
