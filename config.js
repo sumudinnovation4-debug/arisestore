@@ -13,9 +13,9 @@ window.STORE_CONFIG = {
   // Contact details shown in the footer and used for "Ask on WhatsApp" buttons.
   whatsapp: "+2348167956341",   // international format without +, e.g. 2348012345678
   phone: "08167956341",
-  email: "alphastacks341@gmail.com",
-  address: "",
+  email: "ariseandshineworlddigital@gmail.com",
+  address: "lambu phase 1,keffi Nasarawa state, Nigeria",
 
   // Shown to customers who choose "Pay by bank transfer". Leave empty to hide that option.
-  bank: { bank: "moniepoint", accountName: "Muhammad kamaldeen", accountNumber: "9134487575" }
+  bank: { bank: "FCMB", accountName: "Arise and shine digital world", accountNumber: "2001322041" }
 };
