@@ -8,7 +8,7 @@ window.STORE_CONFIG = {
   supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjZGZrZndlcXFtaXR0ZWVzYnF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIzMjkxMjEsImV4cCI6MjEwNzkwNTEyMX0.k4zyev_aFKTE9B1Xag5OeFvQSfN2ZmvqUfPVk-LNOnU",
 
   // Paystack: Settings > API Keys. Use the PUBLIC key only (pk_live_... or pk_test_...).
-  paystackPublicKey: "pk_test_31d8bf7e2bd93f737dca20a729c2390aa991154c",
+  paystackPublicKey: "pk_live_c6328255025c6981d845aa4ebacab5a3ab11bb24",
 
   // Contact details shown in the footer and used for "Ask on WhatsApp" buttons.
   whatsapp: "+2348167956341",   // international format without +, e.g. 2348012345678
