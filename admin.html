@@ -4,7 +4,7 @@
 <title>Store admin | Arise and Shine Digital World</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/style.css?v=3">
 <style>
 body{padding-bottom:40px}
 .ah{background:var(--header);color:#fff;position:sticky;top:0;z-index:30}
@@ -74,7 +74,7 @@ tr.click:hover td{background:var(--bg)}
 </div>
 <div id="drawerRoot"></div>
 
-<script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
+<script src="config.js"></script><script src="assets/catalog.js?v=3"></script><script src="assets/app.js?v=3"></script>
 <script>
 var $ = A.$;
 var ORDERS = [], PRODUCTS = [], SETTINGS = {}, view = "overview";
@@ -206,7 +206,7 @@ function openOrder(id) {
       "<div><span>Delivery</span><span>" + (Number(o.delivery_fee) ? A.money(o.delivery_fee) : "Free") + '</span></div><div class="tot"><span>Total</span><span>' + A.money(o.total) + "</span></div></div>" +
       '<p><span class="tag ' + (o.payment_status === "paid" ? "ok" : "warn") + '">' + (o.payment_status === "paid" ? "Paid" : "Payment pending") + "</span> <span class=\"note\">" + (o.payment_method === "transfer" ? "Bank transfer" : "Paystack") + "</span></p>" +
       (o.payment_status !== "paid" && o.status !== "cancelled" ? '<div class="actions"><button class="btn" id="paid">Mark as paid</button></div>' : "") +
-      (o.payment_status === "paid" ? '<div class="msg ok" style="margin-top:12px"><b>Receipt ready</b><div class="actions" style="margin-top:8px"><a class="btn primary" target="_blank" rel="noopener" href="' + A.esc(A.receiptUrl(o)) + '">View receipt</a><a class="btn" target="_blank" rel="noopener" href="' + A.esc(A.receiptUrl(o, true)) + '">Download receipt</a><a class="btn" target="_blank" rel="noopener" href="' + A.esc(waLink(o.phone, "Hello " + o.customer_name + ", your payment of " + A.money(o.total) + " for order " + o.ref + " is confirmed. Thank you! Your receipt: " + A.receiptUrl(o))) + '">Send on WhatsApp</a></div></div>' : "") +
+      (o.payment_status === "paid" ? '<div class="msg ok" style="margin-top:12px"><b>Receipt ready</b><div class="actions" style="margin-top:8px"><a class="btn primary" target="_blank" rel="noopener" href="' + A.esc(A.receiptUrl(o)) + '">View receipt</a><a class="btn" target="_blank" rel="noopener" href="' + A.esc(A.receiptUrl(o, true)) + '">Download PDF</a><a class="btn" target="_blank" rel="noopener" href="' + A.esc(waLink(o.phone, "Hello " + o.customer_name + ", your payment of " + A.money(o.total) + " for order " + o.ref + " is confirmed. Thank you! Your receipt: " + A.receiptUrl(o))) + '">Send on WhatsApp</a></div></div>' : "") +
       '<div class="field" style="margin-top:14px"><label for="ns">Order status</label><select id="ns">' + STATUSES.map(function (s) { return '<option value="' + s + '"' + (s === o.status ? " selected" : "") + ">" + A.STATUS[s] + "</option>"; }).join("") + "</select></div>" +
       '<div class="field"><label for="nn">Message for the customer (optional)</label><input id="nn" placeholder="e.g. Rider Musa will call you"></div>' +
       '<div class="actions"><button class="btn primary" id="saveS">Update status</button></div><p class="note" style="margin-top:6px">Cancelling an order puts its items back in stock.</p>' +

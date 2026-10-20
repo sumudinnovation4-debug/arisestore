@@ -4,7 +4,7 @@
 <title>Receipt | Arise and Shine Digital World</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/style.css?v=3">
 <style>
 body{padding-bottom:30px}
 .bar{background:var(--header);color:#fff}
@@ -36,7 +36,9 @@ body{padding-bottom:30px}
 .foot{margin-top:26px;border-top:1px solid #e5e9f0;padding-top:14px;color:#374151;font-size:13px;display:grid;gap:6px}
 .foot .thanks{font:700 16px var(--font-display);color:#12284a}
 .state{max-width:560px;margin:30px auto}
-@media (max-width:600px){.sheet table{min-width:0}.sheet th,.sheet td{padding:8px 5px}.sheet .r{white-space:normal}.sheet{padding:16px;margin:10px}.cols{grid-template-columns:1fr}.meta{text-align:left}}
+#cap{position:fixed;left:-10000px;top:0;width:780px}
+#actions{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:600px){.sheet:not(.cap) table{min-width:0}.sheet:not(.cap) th,.sheet:not(.cap) td{padding:8px 5px}.sheet:not(.cap) .r{white-space:normal}.sheet:not(.cap){padding:16px;margin:10px}.sheet:not(.cap) .cols{grid-template-columns:1fr}.sheet:not(.cap) .meta{text-align:left}.bar .btn{flex:1;text-align:center}.bar .sp{display:none}#actions{display:flex;gap:8px;flex:1 1 100%;flex-wrap:wrap}#actions .btn{flex:1 1 40%}}
 @media print{
   @page{size:A4;margin:14mm}
   html,body{background:#fff!important;padding:0!important}
@@ -52,9 +54,10 @@ body{padding-bottom:30px}
   <span class="sp"></span>
   <span id="actions"></span>
 </div></div>
+<div id="cap" aria-hidden="true"></div>
 <main id="main"><div class="state"><div class="empty">Loading receipt…</div></div></main>
 
-<script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
+<script src="config.js"></script><script src="assets/catalog.js?v=3"></script><script src="assets/app.js?v=3"></script>
 <script>
 var $ = A.$, qs = new URLSearchParams(location.search);
 var ref = qs.get("ref") || "", phone = qs.get("phone") || "", autoPrint = qs.get("print") === "1";
@@ -64,6 +67,35 @@ function fmt(d) { return new Date(d).toLocaleString("en-NG", { dateStyle: "long"
 function state(html) { main.innerHTML = '<div class="state">' + html + "</div>"; }
 function logo() {
   return '<svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="10" fill="#12284a"/><path d="M6 27h28" stroke="#ffb347" stroke-width="2.5" stroke-linecap="round"/><path d="M11 27a9 9 0 0 1 18 0" fill="#ffb347"/><path d="M20 8v4M9 13l3 3M31 13l-3 3" stroke="#ffb347" stroke-width="2.5" stroke-linecap="round"/></svg>';
+}
+
+function loadJs(src) {
+  return new Promise(function (ok, no) { var s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = function () { no(new Error("Could not load " + src)); }; document.head.appendChild(s); });
+}
+function libs(kind) {
+  var p = window.html2canvas ? Promise.resolve() : loadJs("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+  if (kind === "pdf" && !(window.jspdf)) p = p.then(function () { return loadJs("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"); });
+  return p;
+}
+function download(blob, name) {
+  var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+}
+function save(kind, btn) {
+  var label = btn.textContent; btn.disabled = true; btn.textContent = "Preparing…";
+  var name = (document.title.split(" | ")[0] || "Receipt").replace(/\s+/g, "-");
+  var cap = document.getElementById("cap"), copy = document.getElementById("sheet").cloneNode(true);
+  copy.removeAttribute("id"); copy.className = "sheet cap"; copy.style.margin = "0"; copy.style.border = "0"; copy.style.borderRadius = "0";
+  cap.innerHTML = ""; cap.appendChild(copy);
+  libs(kind).then(function () { return html2canvas(copy, { scale: 2, backgroundColor: "#ffffff", useCORS: true }); }).then(function (cv) {
+    if (kind === "png") return new Promise(function (ok) { cv.toBlob(function (b) { download(b, name + ".png"); ok(); }, "image/png"); });
+    var J = window.jspdf.jsPDF, pdf = new J({ unit: "pt", format: "a4" }), W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight(), m = 28;
+    var w = W - m * 2, h = cv.height * w / cv.width, img = cv.toDataURL("image/jpeg", 0.95);
+    if (h <= H - m * 2) pdf.addImage(img, "JPEG", m, m, w, h);
+    else { var y = 0; while (y < h) { if (y) pdf.addPage(); pdf.addImage(img, "JPEG", m, m - y, w, h); y += H - m * 2; } }
+    download(pdf.output("blob"), name + ".pdf");
+  }).catch(function () { A.toast("Could not create the file. Check your connection, or use Print."); })
+    .then(function () { cap.innerHTML = ""; btn.disabled = false; btn.textContent = label; });
 }
 
 function show(o, settings, isOwner) {
@@ -90,12 +122,14 @@ function show(o, settings, isOwner) {
 
   var wa = isOwner && o.phone ? '<a class="btn" target="_blank" rel="noopener" href="https://wa.me/' + String(o.phone).replace(/\D/g, "").replace(/^0/, "234") + "?text=" +
     encodeURIComponent("Hello " + o.customer_name + ", your payment of " + A.money(o.total) + " for order " + o.ref + " is confirmed. Thank you! Your receipt: " + A.receiptUrl(o)) + '">Send on WhatsApp</a> ' : "";
-  $("#actions").innerHTML = wa + '<button class="btn primary" id="print">Print or save as PDF</button>';
+  $("#actions").innerHTML = wa + '<button class="btn primary" id="pdf">Download PDF</button><button class="btn" id="img">Save as image</button><button class="btn" id="print">Print</button>';
   $("#print").onclick = function () { window.print(); };
-  if (autoPrint) setTimeout(function () { window.print(); }, 500);
+  $("#pdf").onclick = function () { save("pdf", this); };
+  $("#img").onclick = function () { save("png", this); };
+  if (autoPrint) setTimeout(function () { save("pdf", $("#pdf")); }, 400);
 }
 
-Promise.all([A.getOrder(ref, phone), A.getSettings(), A.auth.isAdmin()]).then(function (r) {
+if (!A.getOrder) { state('<div class="msg bad">The site files are out of date. Upload the new assets/app.js, then refresh.</div>'); } else Promise.all([A.getOrder(ref, phone), A.getSettings(), A.auth.isAdmin()]).then(function (r) {
   var o = r[0];
   if (!o) {
     state('<div class="msg bad">We could not find that receipt.</div><p class="note">Open it from <a href="track.html">Track order</a> with your order number and phone number, or sign in as the store owner.</p>');
