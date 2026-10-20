@@ -380,6 +380,33 @@
     });
   };
 
+  // ---------- receipts ----------
+  A.payLabel = function (m) { return m === "transfer" ? "Bank transfer" : "Paystack (card or bank)"; };
+  A.receiptNo = function (o) { return "RCT-" + String(o.ref || "").replace(/^ASDW-/, ""); };
+  A.paidAt = function (o) {
+    if (o.paid_at) return o.paid_at;
+    var ev = (o.events || []).filter(function (e) { return /payment/i.test(e.note || ""); });
+    return ev.length ? ev[ev.length - 1].created_at : o.created_at;
+  };
+  A.receiptUrl = function (o, print) {
+    var u = "receipt.html?ref=" + encodeURIComponent(o.ref) + (o.phone ? "&phone=" + encodeURIComponent(o.phone) : "") + (print ? "&print=1" : "");
+    try { return new URL(u, location.href).href; } catch (e) { return u; }
+  };
+  // Customers open a receipt with the order number and phone. The signed-in owner (or the customer who placed it) needs only the order number.
+  A.getOrder = function (ref, phone) {
+    ref = String(ref || "").trim().toUpperCase();
+    if (phone) return A.trackOrder(ref, phone).then(function (o) { if (o && !o.phone) o.phone = phone; return o; });
+    if (!LIVE) return Promise.resolve(demoOrders().filter(function (o) { return o.ref === ref; })[0] || null);
+    return auth.token().then(function (t) {
+      if (!t) return null;
+      return sb("/rest/v1/orders?ref=eq." + encodeURIComponent(ref) + "&select=*", { token: t }).then(function (r) {
+        var o = r && r[0]; if (!o) return null;
+        return sb("/rest/v1/order_events?order_id=eq." + encodeURIComponent(o.id) + "&order=created_at.asc", { token: t })
+          .then(function (ev) { o.events = ev || []; return o; }).catch(function () { o.events = []; return o; });
+      });
+    });
+  };
+
   // ---------- product card ----------
   A.inStock = function (p) { return p.stock == null || p.stock > 0; };
   A.productCard = function (p) {
