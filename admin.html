@@ -206,6 +206,7 @@ function openOrder(id) {
       "<div><span>Delivery</span><span>" + (Number(o.delivery_fee) ? A.money(o.delivery_fee) : "Free") + '</span></div><div class="tot"><span>Total</span><span>' + A.money(o.total) + "</span></div></div>" +
       '<p><span class="tag ' + (o.payment_status === "paid" ? "ok" : "warn") + '">' + (o.payment_status === "paid" ? "Paid" : "Payment pending") + "</span> <span class=\"note\">" + (o.payment_method === "transfer" ? "Bank transfer" : "Paystack") + "</span></p>" +
       (o.payment_status !== "paid" && o.status !== "cancelled" ? '<div class="actions"><button class="btn" id="paid">Mark as paid</button></div>' : "") +
+      (o.payment_status === "paid" ? '<div class="msg ok" style="margin-top:12px"><b>Receipt ready</b><div class="actions" style="margin-top:8px"><a class="btn primary" target="_blank" rel="noopener" href="' + A.esc(A.receiptUrl(o)) + '">View receipt</a><a class="btn" target="_blank" rel="noopener" href="' + A.esc(A.receiptUrl(o, true)) + '">Download receipt</a><a class="btn" target="_blank" rel="noopener" href="' + A.esc(waLink(o.phone, "Hello " + o.customer_name + ", your payment of " + A.money(o.total) + " for order " + o.ref + " is confirmed. Thank you! Your receipt: " + A.receiptUrl(o))) + '">Send on WhatsApp</a></div></div>' : "") +
       '<div class="field" style="margin-top:14px"><label for="ns">Order status</label><select id="ns">' + STATUSES.map(function (s) { return '<option value="' + s + '"' + (s === o.status ? " selected" : "") + ">" + A.STATUS[s] + "</option>"; }).join("") + "</select></div>" +
       '<div class="field"><label for="nn">Message for the customer (optional)</label><input id="nn" placeholder="e.g. Rider Musa will call you"></div>' +
       '<div class="actions"><button class="btn primary" id="saveS">Update status</button></div><p class="note" style="margin-top:6px">Cancelling an order puts its items back in stock.</p>' +
@@ -217,7 +218,7 @@ function openOrder(id) {
       A.admin.setStatus(o, st, $("#nn").value.trim()).then(function () { A.toast("Status updated"); return load(true); }).then(function () { openOrder(id); }).catch(function (e) { $("#saveS").disabled = false; fail(e); });
     };
     var pb = $("#paid");
-    if (pb) pb.onclick = function () { pb.disabled = true; A.admin.markPaid(id).then(function () { A.toast("Marked as paid"); return load(true); }).then(function () { openOrder(id); }).catch(function (e) { pb.disabled = false; fail(e); }); };
+    if (pb) pb.onclick = function () { pb.disabled = true; A.admin.markPaid(id).then(function () { A.toast("Marked as paid. Receipt is ready."); return load(true); }).then(function () { openOrder(id); }).catch(function (e) { pb.disabled = false; fail(e); }); };
   }).catch(function (e) { closeDrawer(); fail(e); });
 }
 
@@ -380,6 +381,7 @@ function settings() {
     '<div class="field"><label for="sp">Store pickup address</label><input id="sp" value="' + A.esc(SETTINGS.pickup_address || "") + '"></div><button class="btn primary" id="ss">Save settings</button></div>' +
     '<div class="panel"><h2>Change my password</h2><form id="pw"><div class="field"><label for="p1">New password</label><input id="p1" type="password" minlength="8" autocomplete="new-password" required></div><div class="field"><label for="p2">Repeat new password</label><input id="p2" type="password" autocomplete="new-password" required></div><button class="btn primary">Change password</button></form>' +
     '<p class="note" style="margin-top:8px">Use at least 8 characters. Do this once after your first login.</p></div></div>' +
+    '<div class="panel" style="margin-top:14px"><h2>Receipt</h2><div class="field"><label for="rn">Note printed at the bottom of every receipt</label><textarea id="rn" rows="3" placeholder="e.g. Goods remain under warranty as stated by the manufacturer. Keep this receipt as proof of purchase.">' + A.esc(SETTINGS.receipt_note || "") + '</textarea></div><button class="btn primary" id="srn">Save receipt note</button><p class="note" style="margin-top:8px">The store name, phone, WhatsApp, email and address on receipts come from config.js.</p></div>' +
     '<p class="note" style="margin-top:14px">Phone number, WhatsApp, address and bank details for transfers are in <b>config.js</b>.</p>';
 }
 
@@ -416,6 +418,7 @@ document.addEventListener("click", function (e) {
     A.admin.saveProducts(rows).then(function () { A.toast(rows.length + " products added or updated"); IMPORT = []; pF = ""; pQ = ""; pCat = ""; return load(true).then(function () { go("products"); }); }).catch(function (err) { $("#doimp").disabled = false; fail(err); });
     return;
   }
+  if (t.closest("#srn")) { var rn = $("#rn").value.trim(); A.admin.saveSetting("receipt_note", rn).then(function () { SETTINGS.receipt_note = rn; A.toast("Receipt note saved"); }).catch(fail); return; }
   if (t.closest("#ss")) {
     A.admin.saveSetting("delivery_fee", $("#sf").value || 0).then(function () { return A.admin.saveSetting("pickup_address", $("#sp").value.trim()); })
       .then(function () { SETTINGS.delivery_fee = $("#sf").value || 0; SETTINGS.pickup_address = $("#sp").value.trim(); A.toast("Settings saved"); }).catch(fail); return;
