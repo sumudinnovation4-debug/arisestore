@@ -4,7 +4,7 @@
 <meta name="description" content="Laptops, printers, networking, audio and power accessories from HP, Dell, Lenovo, Apple, Canon, Epson, JBL, Anker and more.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="assets/style.css"></head>
+<link rel="stylesheet" href="assets/style.css?v=3"></head>
 <body>
 <div id="site-header"></div>
 
@@ -33,14 +33,17 @@
 </main>
 
 <div id="site-footer"></div>
-<script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
+<script src="config.js"></script><script src="assets/catalog.js?v=3"></script><script src="assets/app.js?v=3"></script>
 <script>
 A.layout("home", { strip: true });
 
 /* category tiles */
-document.getElementById("catgrid").innerHTML = A.CAT.map(function (c) {
-  return '<a class="cat" href="shop.html?cat=' + c.slug + '">' + A.mediaFor(c.slug, c.wiki ? c.wiki[0] : "", c.name, "") + "<b>" + A.esc(c.name) + "</b></a>";
-}).join("");
+function tiles() {
+  document.getElementById("catgrid").innerHTML = A.CAT.map(function (c) {
+    return '<a class="cat" href="shop.html?cat=' + c.slug + '">' + A.mediaFor(c.slug, c.wiki ? c.wiki[0] : "", c.name, "") + "<b>" + A.esc(c.name) + "</b></a>";
+  }).join("");
+}
+tiles(); A.onCats(tiles);
 
 /* banner */
 (function () {
@@ -62,7 +65,7 @@ document.getElementById("catgrid").innerHTML = A.CAT.map(function (c) {
 /* product rails: first the categories people shop most, products visible straight away */
 var RAILS = ["laptops", "printers", "monitors", "ssd", "routers", "headphones", "ups-stabilizers", "power-banks", "keyboards-mice", "cables-chargers"];
 A.getProducts().then(function (list) {
-  var html = RAILS.map(function (slug) {
+  var html = RAILS.concat(A.CAT.filter(function (c) { return c.custom; }).map(function (c) { return c.slug; })).map(function (slug) {
     var c = A.cat(slug); if (!c) return "";
     var items = list.filter(function (p) { return p.category === slug; });
     items.sort(function (a, b) { return (a.price == null) - (b.price == null); });
