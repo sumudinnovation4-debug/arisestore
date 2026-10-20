@@ -117,7 +117,8 @@ function start() {
 function load(quiet) {
   if (!quiet) $("#view").innerHTML = '<div class="empty">Loading…</div>';
   return Promise.all([A.admin.orders(), A.admin.products()]).then(function (r) {
-    ORDERS = r[0] || []; PRODUCTS = r[1] || []; render();
+    ORDERS = r[0] || []; PRODUCTS = r[1] || [];
+    return A.getSettings().then(function (s) { A.syncCats(PRODUCTS, s); }).then(function () { render(); });
   }).catch(function (e) { $("#view").innerHTML = '<div class="msg bad">Could not load data. ' + A.esc(e.message) + "</div>"; fail(e); });
 }
 function go(v) { view = v; SEL = {}; location.hash = v; render(); window.scrollTo(0, 0); }
@@ -269,7 +270,7 @@ function productForm(p, isNew) {
   var cat = p.category || pCat || A.CAT[0].slug;
   drawer(isNew ? "Add a product" : "Edit product",
     '<form id="pform"><div class="field"><label for="fn">Product name</label><input id="fn" required placeholder="e.g. HP 15 Laptop, Core i5, 8GB RAM, 512GB SSD" value="' + A.esc(p.name || "") + '"></div>' +
-    '<div class="two"><div class="field"><label for="fc">Category</label><select id="fc">' + A.CAT.map(function (c) { return '<option value="' + c.slug + '"' + (c.slug === cat ? " selected" : "") + ">" + A.esc(c.name) + "</option>"; }).join("") + '</select></div>' +
+    '<div class="two"><div class="field"><label for="fc">Category</label><input id="fc" required list="catlist" autocomplete="off" placeholder="Pick or type a new one, e.g. Staplers" value="' + A.esc(p.category || pCat ? catName(cat) : "") + '"><datalist id="catlist">' + A.CAT.map(function (c) { return '<option value="' + A.esc(c.name) + '">'; }).join("") + '</datalist><span class="note" id="cnote">Type any category name. A new one is created for you.</span></div>' +
     '<div class="field"><label for="fb">Brand</label><input id="fb" required list="brandlist" value="' + A.esc(p.brand || "") + '"><datalist id="brandlist"></datalist></div></div>' +
     '<div class="two"><div class="field"><label for="fp">Price (' + A.esc(A.C.currency) + ')</label><input id="fp" type="number" min="0" step="any" placeholder="Leave empty for price on request" value="' + (p.price == null ? "" : p.price) + '"></div>' +
     '<div class="field"><label for="fs">Stock quantity</label><input id="fs" type="number" min="0" step="1" placeholder="Leave empty if not tracked" value="' + (p.stock == null ? "" : p.stock) + '"></div></div>' +
@@ -278,7 +279,9 @@ function productForm(p, isNew) {
     '<label class="opt" style="margin-bottom:12px"><input type="checkbox" id="fa"' + (p.active === false ? "" : " checked") + '><span><b>Show in the store</b><br><span class="note">Untick to hide it without deleting.</span></span></label>' +
     '<div class="actions"><button class="btn primary" id="fsave">Save product</button>' + (isNew ? "" : '<button type="button" class="btn" id="fdup">Duplicate</button><button type="button" class="btn" id="fdel">Delete</button>') + '</div></form>');
   function brands() {
-    var c = A.cat($("#fc").value); $("#brandlist").innerHTML = (c ? c.brands : []).map(function (b) { return '<option value="' + A.esc(b) + '">'; }).join("");
+    var c = findCat($("#fc").value); var nn = $("#fc").value.trim();
+    $("#cnote").textContent = nn && !c ? "New category: “" + A.titleCase(nn) + "” will be created." : "Type any category name. A new one is created for you.";
+    $("#brandlist").innerHTML = (c ? c.brands : []).map(function (b) { return '<option value="' + A.esc(b) + '">'; }).join("");
   }
   function preview() {
     var u = $("#fi").value.trim();
@@ -286,25 +289,27 @@ function productForm(p, isNew) {
     var im = $("#pv img"); if (im) im.onerror = function () { $("#pv").innerHTML = '<span class="note">Cannot load link</span>'; };
   }
   brands(); preview();
-  $("#fc").onchange = brands; $("#fi").oninput = preview;
+  $("#fc").oninput = brands; $("#fc").onchange = brands; $("#fi").oninput = preview;
   $("#ff").onchange = function (e) {
     var f = e.target.files[0]; if (!f) return;
     $("#fnote").textContent = "Uploading…"; $("#fsave").disabled = true;
     A.admin.uploadImage(f).then(function (url) { $("#fi").value = url; preview(); $("#fnote").textContent = "Photo uploaded."; })
       .catch(function (err) { $("#fnote").textContent = err.message; }).then(function () { $("#fsave").disabled = false; });
   };
-  function row(id) {
+  function row(id, cslug) {
     var price = numOrNull($("#fp").value), stock = numOrNull($("#fs").value);
-    return { id: id, category: $("#fc").value, brand: $("#fb").value.trim(), name: $("#fn").value.trim(), description: $("#fd").value.trim(),
+    return { id: id, category: cslug, brand: $("#fb").value.trim(), name: $("#fn").value.trim(), description: $("#fd").value.trim(),
       price: price, stock: stock == null ? null : Math.max(0, Math.floor(stock)), image_url: $("#fi").value.trim(), active: $("#fa").checked };
   }
   $("#pform").onsubmit = function (e) {
     e.preventDefault();
-    var r = row(isNew ? A.slug($("#fc").value + "-" + $("#fn").value).slice(0, 60) + "-" + Math.random().toString(36).slice(2, 6) : p.id);
+    var rc = resolveCat($("#fc").value); if (!rc) return A.toast("Enter a category name.");
+    var r = row(isNew ? A.slug(rc.slug + "-" + $("#fn").value).slice(0, 60) + "-" + Math.random().toString(36).slice(2, 6) : p.id, rc.slug);
     if (!r.name || !r.brand) return A.toast("Enter a name and a brand.");
     if (r.price != null && (isNaN(r.price) || r.price < 0)) return A.toast("Enter a valid price.");
     $("#fsave").disabled = true;
-    A.admin.saveProducts([r]).then(function () {
+    (rc.isNew ? A.admin.saveCategories(newCats(rc)) : Promise.resolve()).then(function () { return A.admin.saveProducts([r]); }).then(function () {
+      if (rc.isNew) A.addCat(rc.slug, rc.name);
       var i = PRODUCTS.findIndex(function (x) { return x.id === r.id; });
       if (i > -1) PRODUCTS[i] = Object.assign({}, PRODUCTS[i], r); else PRODUCTS.unshift(r);
       closeDrawer(); A.toast(isNew ? "Product added" : "Product saved"); render();
@@ -331,6 +336,13 @@ function findCat(v) {
   var n = norm(v); if (!n) return null;
   return A.CAT.filter(function (c) { return norm(c.slug) === n || norm(c.name) === n || norm(c.singular) === n || norm(c.name) === n + "s"; })[0] || null;
 }
+function resolveCat(text) {
+  var t = String(text || "").trim(); if (!t) return null;
+  var c = findCat(t); if (c) return { slug: c.slug, name: c.name };
+  var slug = A.slug(t); if (!slug) return null;
+  return { slug: slug, name: A.titleCase(t), isNew: true };
+}
+function newCats(rc) { var m = {}; m[rc.slug] = rc.name; return m; }
 function splitLine(line, d) {
   var out = [], cur = "", q = false, i, ch;
   for (i = 0; i < line.length; i++) {
@@ -347,22 +359,22 @@ function parseImport(text) {
   var rows = lines.map(function (l) { return splitLine(l, d); });
   if (norm(rows[0][0]) === "name" || norm(rows[0][0]) === "productname") rows.shift();
   return rows.map(function (c, i) {
-    var cat = findCat(c[2]), price = numOrNull(c[3] || ""), stock = numOrNull(c[4] || ""), errs = [];
+    var cat = resolveCat(c[2]), price = numOrNull(c[3] || ""), stock = numOrNull(c[4] || ""), errs = [];
     if (!c[0]) errs.push("name missing");
     if (!c[1]) errs.push("brand missing");
-    if (!cat) errs.push("category not recognised");
+    if (!cat) errs.push("category missing");
     if (price != null && (isNaN(price) || price < 0)) errs.push("price is not a number");
     if (stock != null && (isNaN(stock) || stock < 0)) errs.push("stock is not a number");
     var r = { name: c[0] || "", brand: c[1] || "", catText: c[2] || "", price: price, stock: stock == null || isNaN(stock) ? null : Math.floor(stock), description: c[5] || "", image_url: c[6] || "", errs: errs, n: i + 1 };
-    if (cat) { r.category = cat.slug; r.id = cat.slug + "-" + A.slug(r.brand + " " + r.name).slice(0, 70); }
+    if (cat) { r.category = cat.slug; r.newCat = cat.isNew ? cat.name : ""; r.catName = cat.name; r.id = cat.slug + "-" + A.slug(r.brand + " " + r.name).slice(0, 70); }
     return r;
   });
 }
 function importView() {
   $("#view").innerHTML = '<h2 class="t">Add many products at once</h2>' +
     '<div class="panel" style="margin-bottom:14px"><p style="margin:0 0 8px">Copy rows from Excel or Google Sheets and paste them below. Use these columns, in this order:</p>' +
-    '<p class="note"><b>Name, Brand, Category, Price, Stock, Description, Photo link</b>. Only name, brand and category are needed. A product that already exists with the same brand and name is updated.</p>' +
-    '<p class="note" style="margin-top:6px">Categories: ' + A.esc(A.CAT.map(function (c) { return c.name; }).join(", ")) + '.</p>' +
+    '<p class="note"><b>Name, Brand, Category, Price, Stock, Description, Photo link</b>. Only name, brand and category are needed. Type any category name; one that does not exist yet is created automatically. A product that already exists with the same brand and name is updated.</p>' +
+    '<p class="note" style="margin-top:6px">Existing categories: ' + A.esc(A.CAT.map(function (c) { return c.name; }).join(", ")) + '.</p>' +
     '<div class="actions" style="margin:10px 0"><button class="btn small" id="tpl">Download a blank sheet</button></div>' +
     '<textarea class="csv" id="csv" placeholder="HP 15 Laptop Core i5 8GB 512GB&#9;HP&#9;Laptops&#9;650000&#9;5&#9;Windows 11, 15.6 inch&#9;"></textarea>' +
     '<div class="actions"><button class="btn primary" id="prev">Check my list</button></div></div><div id="prevbox"></div>';
@@ -371,7 +383,7 @@ function showPreview() {
   var ok = IMPORT.filter(function (r) { return !r.errs.length; }), bad = IMPORT.length - ok.length;
   $("#prevbox").innerHTML = !IMPORT.length ? '<div class="msg warn">Nothing to import. Paste your rows first.</div>' :
     '<div class="panel"><h2>' + ok.length + " ready" + (bad ? ", " + bad + " need fixing" : "") + '</h2><div class="tablewrap" style="margin-bottom:12px"><table style="min-width:720px"><thead><tr><th>#</th><th>Name</th><th>Brand</th><th>Category</th><th>Price</th><th>Stock</th><th>Check</th></tr></thead><tbody>' +
-    IMPORT.map(function (r) { return "<tr><td>" + r.n + "</td><td>" + A.esc(r.name) + "</td><td>" + A.esc(r.brand) + "</td><td>" + A.esc(r.category ? catName(r.category) : r.catText) + "</td><td>" + (r.price == null ? "" : A.money(r.price)) + "</td><td>" + (r.stock == null ? "" : r.stock) + "</td><td>" + (r.errs.length ? '<span class="err">' + A.esc(r.errs.join(", ")) + "</span>" : '<span class="ok">OK</span>') + "</td></tr>"; }).join("") +
+    IMPORT.map(function (r) { return "<tr><td>" + r.n + "</td><td>" + A.esc(r.name) + "</td><td>" + A.esc(r.brand) + "</td><td>" + A.esc(r.newCat ? r.newCat + " (new category)" : r.category ? catName(r.category) : r.catText) + "</td><td>" + (r.price == null ? "" : A.money(r.price)) + "</td><td>" + (r.stock == null ? "" : r.stock) + "</td><td>" + (r.errs.length ? '<span class="err">' + A.esc(r.errs.join(", ")) + "</span>" : '<span class="ok">OK</span>') + "</td></tr>"; }).join("") +
     '</tbody></table></div>' + (ok.length ? '<button class="btn primary" id="doimp">Add ' + ok.length + " products</button>" : "") + (bad ? '<p class="note" style="margin-top:8px">Rows that need fixing are skipped. Fix them in your sheet and check again.</p>' : "") + "</div>";
 }
 
@@ -415,7 +427,8 @@ document.addEventListener("click", function (e) {
     var rows = IMPORT.filter(function (r) { return !r.errs.length; }).map(function (r) { return { id: r.id, category: r.category, brand: r.brand, name: r.name, description: r.description, price: r.price, stock: r.stock, image_url: r.image_url, active: true }; });
     var seen = {}; rows = rows.filter(function (r) { if (seen[r.id]) return false; seen[r.id] = 1; return true; });
     t.closest("#doimp").disabled = true;
-    A.admin.saveProducts(rows).then(function () { A.toast(rows.length + " products added or updated"); IMPORT = []; pF = ""; pQ = ""; pCat = ""; return load(true).then(function () { go("products"); }); }).catch(function (err) { $("#doimp").disabled = false; fail(err); });
+    var nc = {}; IMPORT.forEach(function (r) { if (!r.errs.length && r.newCat) nc[r.category] = r.newCat; });
+    A.admin.saveCategories(nc).then(function () { return A.admin.saveProducts(rows); }).then(function () { A.toast(rows.length + " products added or updated"); IMPORT = []; pF = ""; pQ = ""; pCat = ""; return load(true).then(function () { go("products"); }); }).catch(function (err) { $("#doimp").disabled = false; fail(err); });
     return;
   }
   if (t.closest("#srn")) { var rn = $("#rn").value.trim(); A.admin.saveSetting("receipt_note", rn).then(function () { SETTINGS.receipt_note = rn; A.toast("Receipt note saved"); }).catch(fail); return; }
