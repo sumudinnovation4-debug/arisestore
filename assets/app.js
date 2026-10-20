@@ -6,6 +6,7 @@
   var A = (window.A = { C: C, CAT: CAT, LIVE: LIVE });
 
   var ICONS = {
+    box:'<path d="M32 8l22 11v26L32 56 10 45V19z"/><path d="M10 19l22 11 22-11M32 30v26"/>',
     laptop:'<rect x="14" y="14" width="36" height="26" rx="2"/><path d="M7 46h50l-4 6H11z"/>',
     desktop:'<rect x="8" y="10" width="48" height="32" rx="3"/><path d="M26 54h12M32 42v12"/>',
     printer:'<rect x="18" y="8" width="28" height="14"/><rect x="8" y="22" width="48" height="22" rx="3"/><rect x="18" y="36" width="28" height="20"/>',
@@ -50,6 +51,44 @@
   A.money = function (n) { return (C.currency || "₦") + Number(n || 0).toLocaleString("en-NG", { maximumFractionDigits: 0 }); };
   A.slug = function (s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); };
   A.cat = function (slug) { return CAT.filter(function (c) { return c.slug === slug; })[0]; };
+
+  // ---------- custom categories (typed by the owner) ----------
+  A.titleCase = function (s) {
+    s = String(s || "").trim().replace(/\s+/g, " ");
+    return s === s.toLowerCase() ? s.replace(/(^|[\s\/&-])([a-z])/g, function (m, p, c) { return p + c.toUpperCase(); }) : s;
+  };
+  A.addCat = function (slug, name) {
+    if (!slug || A.cat(slug)) return false;
+    CAT.push({ slug: slug, name: name, singular: name, icon: "box", blurb: "", tips: [], brands: [], wiki: [], custom: true });
+    return true;
+  };
+  var CATCB = [];
+  A.onCats = function (fn) { CATCB.push(fn); };
+  function readCats() { try { return JSON.parse(localStorage.getItem("asdw_cats")) || {}; } catch (e) { return {}; } }
+  (function () { var m = readCats(); Object.keys(m).forEach(function (k) { A.addCat(k, m[k]); }); })();
+  // Adds every category that products use (or the owner saved) and refreshes the page if the list changed.
+  A.syncCats = function (products, settings) {
+    var names = {}; try { names = JSON.parse((settings && settings.custom_categories) || "{}") || {}; } catch (e) {}
+    var found = {};
+    (products || []).forEach(function (p) {
+      var s = p.category; if (!s) return;
+      if (CAT.some(function (c) { return c.slug === s && !c.custom; })) return;
+      found[s] = names[s] || A.titleCase(s.replace(/-/g, " "));
+    });
+    Object.keys(names).forEach(function (s) { if (!CAT.some(function (c) { return c.slug === s && !c.custom; })) found[s] = names[s]; });
+    var before = JSON.stringify(readCats()), after = JSON.stringify(found), added = false;
+    Object.keys(found).forEach(function (s) {
+      var c = A.cat(s);
+      if (c) { if (c.custom && c.name !== found[s]) { c.name = c.singular = found[s]; added = true; } } else added = A.addCat(s, found[s]) || added;
+    });
+    CAT.forEach(function (c, i) { if (c.custom && !found[c.slug]) { CAT.splice(i, 1); added = true; } });
+    try { localStorage.setItem("asdw_cats", after); } catch (e) {}
+    if (added || before !== after) {
+      var el = document.querySelector(".catstrip");
+      if (el && A._strip != null) el.outerHTML = A.catStrip(A._strip);
+      CATCB.forEach(function (f) { try { f(); } catch (e) {} });
+    }
+  };
   A.hue = function (slug) {
     for (var i = 0; i < CAT.length; i++) if (CAT[i].slug === slug) return Math.round(i * 360 / CAT.length + 14);
     return 210;
@@ -169,9 +208,10 @@
   var _products, _settings;
   A.getProducts = function () {
     if (_products) return _products;
-    _products = LIVE
+    _products = (LIVE
       ? sb("/rest/v1/products?active=eq.true&select=*&order=category.asc,brand.asc").then(function (r) { return r || []; })
-      : Promise.resolve(demoProducts());
+      : Promise.resolve(demoProducts())
+    ).then(function (r) { return A.getSettings().then(function (s) { A.syncCats(r, s); return r; }); });
     return _products;
   };
   A.getSettings = function () {
@@ -348,6 +388,15 @@
       .then(function () { return ad("/rest/v1/order_events", { method: "POST", body: { order_id: id, status: "confirmed", note: "Payment confirmed by the store" }, prefer: "return=minimal" }); });
   };
   admin.products = function () { return ad("/rest/v1/products?select=*&order=category.asc,brand.asc,name.asc&limit=5000"); };
+  // custom categories are kept as one setting: {slug: "Name"}
+  admin.saveCategories = function (map) {
+    var keys = Object.keys(map || {}); if (!keys.length) return Promise.resolve();
+    return ad("/rest/v1/settings?key=eq.custom_categories&select=value").then(function (rows) {
+      var m = {}; try { m = JSON.parse((rows && rows[0] && rows[0].value) || "{}") || {}; } catch (e) {}
+      keys.forEach(function (k) { m[k] = map[k]; });
+      return admin.saveSetting("custom_categories", JSON.stringify(m)).then(function () { return A.getSettings().then(function (s) { s.custom_categories = JSON.stringify(m); }); });
+    });
+  };
   admin.saveProducts = function (rows) { return ad("/rest/v1/products", { method: "POST", body: rows, prefer: "resolution=merge-duplicates,return=minimal" }); };
   admin.updateProducts = function (ids, patch) { return ad("/rest/v1/products?id=in." + inList(ids), { method: "PATCH", body: patch, prefer: "return=minimal" }); };
   admin.deleteProducts = function (ids) { return ad("/rest/v1/products?id=in." + inList(ids), { method: "DELETE", prefer: "return=minimal" }); };
@@ -449,7 +498,7 @@
         "<div><b>Arise and Shine</b><small>Digital World</small></div></a>" +
         '<form class="searchbar" action="shop.html" role="search"><input name="q" type="search" placeholder="Search products and brands" aria-label="Search products and brands" value="' + A.esc(opts.q || "") + '"><button aria-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg></button></form>' +
         '<a class="hcart" href="cart.html" aria-label="Cart"><svg viewBox="0 0 24 24" aria-hidden="true">' + TAB.cart + '</svg><span class="badge" data-cc hidden>0</span></a>' +
-        "</div></header>" + (opts.strip ? A.catStrip(opts.strip === true ? "" : opts.strip) : "");
+        "</div></header>" + (opts.strip ? (A._strip = opts.strip === true ? "" : opts.strip, A.catStrip(A._strip)) : "");
     }
     if (f) {
       var contact = "";
