@@ -3,7 +3,7 @@
 <title>Checkout | Arise and Shine Digital World</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="assets/style.css"></head>
+<link rel="stylesheet" href="assets/style.css?v=3"></head>
 <body>
 <div id="site-header"></div>
 <main class="wrap block">
@@ -25,6 +25,7 @@
           <label class="opt"><input type="radio" name="dm" value="delivery" checked><span><b>Deliver to me</b><br><span class="note" id="feeNote"></span></span></label>
           <label class="opt"><input type="radio" name="dm" value="pickup"><span><b>Pick up from the store</b><br><span class="note" id="pickNote">No delivery fee</span></span></label>
         </div>
+        <div id="rates"></div>
         <div id="addr">
           <div class="field"><label for="address">Delivery address</label><textarea id="address" rows="2" autocomplete="street-address"></textarea></div>
           <div class="two">
@@ -48,7 +49,7 @@
   </form>
 </main>
 <div id="site-footer"></div>
-<script src="config.js"></script><script src="assets/catalog.js"></script><script src="assets/app.js"></script>
+<script src="config.js"></script><script src="assets/catalog.js?v=3"></script><script src="assets/app.js?v=3"></script>
 <script>
 A.layout("cart");
 var $ = A.$, STATES = ["Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno","Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","FCT Abuja","Gombe","Imo","Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos","Nasarawa","Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto","Taraba","Yobe","Zamfara"];
@@ -61,11 +62,20 @@ if (!payHtml) payHtml = '<p class="msg warn">Online payment is not set up yet. A
 $("#pay").innerHTML = payHtml;
 
 var PRODS = [], SET = {}, lines = [];
+function ratesInfo() {
+  var r = A.rates(SET), h = "", dflt = A.deliveryFee(SET);
+  r.areas.filter(function (a) { return a.area && A.money(a.fee) && !isNaN(Number(a.fee)); }).forEach(function (a) { h += "<div><span>" + A.esc(a.area) + ", " + A.esc(a.state) + "</span><span>" + A.money(a.fee) + "</span></div>"; });
+  Object.keys(r.states).filter(function (s) { return r.states[s] !== "" && !isNaN(Number(r.states[s])); }).sort().forEach(function (s) { h += "<div><span>" + A.esc(s) + "</span><span>" + A.money(r.states[s]) + "</span></div>"; });
+  h += "<div><span>All other states</span><span>" + A.money(dflt) + "</span></div>";
+  $("#rates").innerHTML = '<details class="tips" style="margin-top:8px"><summary>See delivery fees by location</summary><div class="sum" style="margin-top:8px">' + h + "</div></details>";
+}
 function totals() {
   var dm = document.querySelector('input[name="dm"]:checked').value;
   var sub = lines.reduce(function (n, l) { return n + l.p.price * l.q; }, 0);
-  var fee = dm === "delivery" ? A.deliveryFee(SET) : 0;
-  $("#sum").innerHTML = "<div><span>Subtotal</span><span>" + A.money(sub) + "</span></div><div><span>Delivery</span><span>" + (dm === "delivery" ? A.money(fee) : "Free") + '</span></div><div class="tot"><span>Total</span><span>' + A.money(sub + fee) + "</span></div>";
+  var st = $("#state").value, place = $("#city").value.trim();
+  var fee = dm === "delivery" && st ? A.feeFor(SET, st, place, $("#address").value) : 0;
+  $("#feeNote").textContent = st ? "Delivery to " + (place ? place + ", " : "") + st + ": " + A.money(A.feeFor(SET, st, place, $("#address").value)) : "The fee depends on your location. Choose your state below.";
+  $("#sum").innerHTML = "<div><span>Subtotal</span><span>" + A.money(sub) + "</span></div><div><span>Delivery</span><span>" + (dm !== "delivery" ? "Free" : st ? A.money(fee) : "Choose state") + '</span></div><div class="tot"><span>Total</span><span>' + A.money(sub + fee) + "</span></div>";
   $("#addr").hidden = dm !== "delivery";
 }
 function show(m) { var e = $("#err"); e.textContent = m; e.hidden = !m; if (m) e.scrollIntoView({ behavior: "smooth", block: "center" }); }
@@ -83,7 +93,7 @@ Promise.all([A.getProducts(), A.getSettings()]).then(function (r) {
   $("#items").innerHTML = lines.map(function (l) {
     return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0"><span>' + l.q + " × " + A.esc(l.p.name) + "</span><span>" + A.money(l.p.price * l.q) + "</span></div>";
   }).join("");
-  $("#feeNote").textContent = "Delivery fee: " + A.money(A.deliveryFee(SET));
+  ratesInfo();
   if (SET.pickup_address) $("#pickNote").textContent = "No delivery fee. " + SET.pickup_address;
   totals();
 }).catch(function (e) { show("Could not load your cart. " + e.message); });
@@ -96,12 +106,14 @@ if (me) {
     if (p.address) $("#address").value = p.address;
     if (p.city) $("#city").value = p.city;
     if (p.state) $("#state").value = p.state;
+    totals();
   }).catch(function () {});
 } else {
   var gn = document.createElement("p"); gn.className = "note"; gn.style.marginBottom = "12px";
   gn.innerHTML = 'Have an account? <a href="profile.html?next=checkout.html">Sign in</a> to fill these in and keep your orders in one place. You can also check out as a guest.';
   document.querySelector("#form").parentNode.insertBefore(gn, document.querySelector("#form"));
 }
+["state", "city", "address"].forEach(function (id) { $("#" + id).addEventListener("input", totals); $("#" + id).addEventListener("change", totals); });
 Array.prototype.forEach.call(document.querySelectorAll('input[name="dm"]'), function (r) { r.addEventListener("change", totals); });
 
 document.getElementById("form").addEventListener("submit", function (ev) {

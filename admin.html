@@ -58,6 +58,11 @@ textarea.csv{width:100%;min-height:150px;border:1px solid var(--line);background
 tr.click{cursor:pointer}
 tr.click:hover td{background:var(--bg)}
 .ok{color:var(--ok);font-weight:700}.err{color:var(--bad);font-weight:700}
+.arow{display:grid;grid-template-columns:minmax(120px,1fr) minmax(120px,1.3fr) 90px auto;gap:8px;margin-bottom:8px}
+.sfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.sf{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px}
+.sf input{width:96px}
+@media (max-width:600px){.arow{grid-template-columns:1fr 1fr}.arow [data-a="area"]{grid-column:1/-1}.sfgrid{grid-template-columns:1fr 1fr}}
 </style></head>
 <body>
 <div id="gate" class="wrap" style="padding-block:24px"></div>
@@ -388,13 +393,41 @@ function showPreview() {
 }
 
 /* ---------- settings ---------- */
+var RATES = { states: {}, areas: [] };
+function areaRow(a) {
+  var div = document.createElement("div"); div.className = "arow";
+  div.innerHTML = '<select data-a="state" aria-label="State">' + A.STATES.map(function (s) { return "<option" + (s === a.state ? " selected" : "") + ">" + s + "</option>"; }).join("") + '</select>' +
+    '<input data-a="area" placeholder="Town or area, e.g. Keffi" aria-label="Town or area" value="' + A.esc(a.area || "") + '">' +
+    '<input data-a="fee" type="number" min="0" placeholder="Fee" aria-label="Fee" value="' + (a.fee === "" || a.fee == null ? "" : A.esc(a.fee)) + '">' +
+    '<button type="button" class="btn small" data-rm aria-label="Remove">✕</button>';
+  $("#areas").appendChild(div);
+}
+function saveRates() {
+  var areas = [], states = {};
+  Array.prototype.forEach.call(document.querySelectorAll("#areas .arow"), function (r) {
+    var area = r.querySelector('[data-a="area"]').value.trim(), fee = r.querySelector('[data-a="fee"]').value;
+    if (area && fee !== "") areas.push({ state: r.querySelector('[data-a="state"]').value, area: area, fee: Number(fee) });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-state]"), function (i) { if (i.value !== "" && Number(i.value) >= 0) states[i.getAttribute("data-state")] = Number(i.value); });
+  var json = JSON.stringify({ states: states, areas: areas });
+  return A.admin.saveSetting("delivery_rates", json).then(function () { SETTINGS.delivery_rates = json; A.toast("Delivery fees saved (" + areas.length + " local areas, " + Object.keys(states).length + " states)"); });
+}
 function settings() {
-  $("#view").innerHTML = '<h2 class="t">Settings</h2><div class="two-col"><div class="panel"><h2>Delivery</h2><div class="field"><label for="sf">Delivery fee (' + A.esc(A.C.currency) + ')</label><input id="sf" type="number" min="0" value="' + A.esc(SETTINGS.delivery_fee || 0) + '"></div>' +
+  $("#view").innerHTML = '<h2 class="t">Settings</h2><div class="two-col"><div class="panel"><h2>Delivery</h2><div class="field"><label for="sf">Default delivery fee (' + A.esc(A.C.currency) + ')</label><input id="sf" type="number" min="0" value="' + A.esc(SETTINGS.delivery_fee || 0) + '"><span class="note">Used for any state that has no fee of its own below.</span></div>' +
     '<div class="field"><label for="sp">Store pickup address</label><input id="sp" value="' + A.esc(SETTINGS.pickup_address || "") + '"></div><button class="btn primary" id="ss">Save settings</button></div>' +
+    '<div class="panel" style="grid-column:1/-1"><h2>Delivery fees by location</h2><p class="note" style="margin-bottom:10px">Customers see the fee for their location at checkout. The order uses the first match: a <b>local area</b> below, then the <b>state fee</b>, then the default fee.</p>' +
+    '<h3 style="font-size:15px;margin:6px 0">Local areas (for example near your shop)</h3><div id="areas"></div><button type="button" class="btn small" id="addarea">+ Add a local area</button>' +
+    '<h3 style="font-size:15px;margin:16px 0 6px">Fee per state</h3><p class="note" style="margin-bottom:8px">Leave a state empty to use the default fee.</p><div id="statefees" class="sfgrid"></div>' +
+    '<div class="actions" style="margin-top:14px"><button class="btn primary" id="srates">Save delivery fees</button></div></div>' +
     '<div class="panel"><h2>Change my password</h2><form id="pw"><div class="field"><label for="p1">New password</label><input id="p1" type="password" minlength="8" autocomplete="new-password" required></div><div class="field"><label for="p2">Repeat new password</label><input id="p2" type="password" autocomplete="new-password" required></div><button class="btn primary">Change password</button></form>' +
     '<p class="note" style="margin-top:8px">Use at least 8 characters. Do this once after your first login.</p></div></div>' +
     '<div class="panel" style="margin-top:14px"><h2>Receipt</h2><div class="field"><label for="rn">Note printed at the bottom of every receipt</label><textarea id="rn" rows="3" placeholder="e.g. Goods remain under warranty as stated by the manufacturer. Keep this receipt as proof of purchase.">' + A.esc(SETTINGS.receipt_note || "") + '</textarea></div><button class="btn primary" id="srn">Save receipt note</button><p class="note" style="margin-top:8px">The store name, phone, WhatsApp, email and address on receipts come from config.js.</p></div>' +
     '<p class="note" style="margin-top:14px">Phone number, WhatsApp, address and bank details for transfers are in <b>config.js</b>.</p>';
+  RATES = A.rates(SETTINGS);
+  $("#areas").innerHTML = ""; (RATES.areas.length ? RATES.areas : [{ state: "Nasarawa", area: "Keffi", fee: "" }]).forEach(areaRow);
+  $("#statefees").innerHTML = A.STATES.map(function (s) {
+    var v = RATES.states[s]; return '<label class="sf"><span>' + A.esc(s) + '</span><input type="number" min="0" data-state="' + A.esc(s) + '" placeholder="default" value="' + (v === "" || v == null ? "" : A.esc(v)) + '"></label>';
+  }).join("");
 }
 
 /* ---------- events ---------- */
@@ -431,6 +464,9 @@ document.addEventListener("click", function (e) {
     A.admin.saveCategories(nc).then(function () { return A.admin.saveProducts(rows); }).then(function () { A.toast(rows.length + " products added or updated"); IMPORT = []; pF = ""; pQ = ""; pCat = ""; return load(true).then(function () { go("products"); }); }).catch(function (err) { $("#doimp").disabled = false; fail(err); });
     return;
   }
+  if (t.closest("#addarea")) { areaRow({ state: "Nasarawa", area: "", fee: "" }); return; }
+  if (t.closest("[data-rm]")) { t.closest(".arow").remove(); return; }
+  if (t.closest("#srates")) { saveRates().catch(fail); return; }
   if (t.closest("#srn")) { var rn = $("#rn").value.trim(); A.admin.saveSetting("receipt_note", rn).then(function () { SETTINGS.receipt_note = rn; A.toast("Receipt note saved"); }).catch(fail); return; }
   if (t.closest("#ss")) {
     A.admin.saveSetting("delivery_fee", $("#sf").value || 0).then(function () { return A.admin.saveSetting("pickup_address", $("#sp").value.trim()); })
