@@ -220,15 +220,32 @@
       ? sb("/rest/v1/settings?select=*").then(function (rows) {
           var m = {}; (rows || []).forEach(function (r) { m[r.key] = r.value; }); return m;
         }).catch(function () { return {}; })
-      : Promise.resolve({ delivery_fee: "3000", pickup_address: "Demo pickup address" });
+      : Promise.resolve({ delivery_fee: "3000", pickup_address: "Demo pickup address", delivery_rates: JSON.stringify({ states: { "Lagos": 3500, "FCT Abuja": 2000 }, areas: [{ state: "Nasarawa", area: "Keffi", fee: 1200 }] }) });
     return _settings;
   };
   A.deliveryFee = function (s) { return Number((s && s.delivery_fee) || 0) || 0; };
+  // Delivery rates: {states: {"Lagos": 3500}, areas: [{state, area, fee}]}. A local area wins, then the state, then the default fee.
+  A.rates = function (s) {
+    var r = {}; try { r = JSON.parse((s && s.delivery_rates) || "{}") || {}; } catch (e) {}
+    return { states: r.states && typeof r.states === "object" ? r.states : {}, areas: Array.isArray(r.areas) ? r.areas : [] };
+  };
+  function nk(x) { return String(x || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+  function isNum(x) { return x !== "" && x != null && !isNaN(Number(x)) && Number(x) >= 0; }
+  A.feeFor = function (s, state, city, address) {
+    var r = A.rates(s), st = String(state || "").trim().toLowerCase(), hay = nk((city || "") + " " + (address || "")), i, a, k;
+    for (i = 0; i < r.areas.length; i++) {
+      a = r.areas[i]; k = nk(a.area);
+      if (k && String(a.state || "").trim().toLowerCase() === st && isNum(a.fee) && hay.indexOf(k) > -1) return Number(a.fee);
+    }
+    var v = r.states[String(state || "").trim()];
+    if (isNum(v)) return Number(v);
+    return A.deliveryFee(s);
+  };
 
   A.createOrder = function (payload) {
     if (LIVE) return auth_token().then(function (t) { return sb("/rest/v1/rpc/create_order", { method: "POST", body: { p: payload }, token: t || undefined }); });
     return Promise.all([A.getProducts(), A.getSettings()]).then(function (r) {
-      var prods = r[0], fee = payload.delivery_method === "delivery" ? A.deliveryFee(r[1]) : 0, sub = 0, lines = [];
+      var prods = r[0], fee = payload.delivery_method === "delivery" ? A.feeFor(r[1], payload.state, payload.city, payload.address) : 0, sub = 0, lines = [];
       payload.items.forEach(function (it) {
         var p = prods.filter(function (x) { return x.id === it.id; })[0];
         if (!p) throw new Error("An item in your cart is no longer available.");
