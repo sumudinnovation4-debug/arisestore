@@ -243,7 +243,17 @@
   };
 
   A.createOrder = function (payload) {
-    if (LIVE) return auth_token().then(function (t) { return sb("/rest/v1/rpc/create_order", { method: "POST", body: { p: payload }, token: t || undefined }); });
+    if (LIVE) return auth_token().then(function (t) { return sb("/rest/v1/rpc/create_order", { method: "POST", body: { p: payload }, token: t || undefined }); }).then(function (o) {
+      // Tell the owner (both WhatsApp numbers) about the new order. Never blocks or breaks checkout.
+      try {
+        fetch(C.supabaseUrl.replace(/\/$/, "") + "/functions/v1/notify-owner", {
+          method: "POST", keepalive: true,
+          headers: { "Content-Type": "application/json", apikey: C.supabaseAnonKey, Authorization: "Bearer " + C.supabaseAnonKey },
+          body: JSON.stringify({ ref: o.ref })
+        }).catch(function () {});
+      } catch (e) {}
+      return o;
+    });
     return Promise.all([A.getProducts(), A.getSettings()]).then(function (r) {
       var prods = r[0], fee = payload.delivery_method === "delivery" ? A.feeFor(r[1], payload.state, payload.city, payload.address) : 0, sub = 0, lines = [];
       payload.items.forEach(function (it) {
@@ -519,10 +529,20 @@
     }
     if (f) {
       var contact = "";
-      if (C.phone) contact += "<p>Call: " + A.esc(C.phone) + "</p>";
-      if (C.whatsapp) contact += '<a target="_blank" rel="noopener" href="https://wa.me/' + A.esc(C.whatsapp) + '">WhatsApp us</a>';
-      if (C.email) contact += "<p>" + A.esc(C.email) + "</p>";
-      if (C.address) contact += "<p>" + A.esc(C.address) + "</p>";
+      var IC = {
+        phone: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>',
+        wa: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21l1.6-4.8A8.5 8.5 0 1 1 8 19.6z"/><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.6-2-1-1 .8c-1-.4-2-1.4-2.4-2.4l.8-1-1-2z"/></svg>',
+        mail: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
+        fb: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8.5A.5.5 0 0 1 14 8z"/></svg>',
+        pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>'
+      };
+      var waDigits = C.whatsapp ? String(C.whatsapp).replace(/\D/g, "") : "";
+      var waShow = waDigits.indexOf("234") === 0 ? "0" + waDigits.slice(3, 6) + " " + waDigits.slice(6, 9) + " " + waDigits.slice(9) : C.whatsapp;
+      if (C.phone) contact += '<a class="fline" href="tel:' + A.esc(String(C.phone).replace(/\s/g, "")) + '">' + IC.phone + "<span>" + A.esc(C.phone) + "</span></a>";
+      if (C.whatsapp) contact += '<a class="fline" target="_blank" rel="noopener" href="https://wa.me/' + A.esc(waDigits) + '">' + IC.wa + "<span>WhatsApp: " + A.esc(waShow) + "</span></a>";
+      if (C.email) contact += '<a class="fline" href="mailto:' + A.esc(C.email) + '">' + IC.mail + "<span>" + A.esc(C.email) + "</span></a>";
+      if (C.facebook) contact += '<a class="fline" target="_blank" rel="noopener" href="' + A.esc(C.facebook) + '">' + IC.fb + "<span>Facebook</span></a>";
+      if (C.address) contact += '<p class="fline">' + IC.pin + "<span>" + A.esc(C.address) + "</span></p>";
       if (!contact) contact = "<p>Contact details coming soon.</p>";
       f.innerHTML = '<footer class="site"><div class="wrap">' +
         "<div><h3>" + A.esc(C.name) + "</h3><p>Computers, printers, networking, audio and power accessories from trusted brands.</p></div>" +
