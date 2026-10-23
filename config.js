@@ -11,9 +11,14 @@ window.STORE_CONFIG = {
   paystackPublicKey: "pk_live_c6328255025c6981d845aa4ebacab5a3ab11bb24",
 
   // Contact details shown in the footer and used for "Ask on WhatsApp" buttons.
-  whatsapp: "+2348167956341",   // international format without +, e.g. 2348012345678
+  whatsapp: "+2348167956341",   // 0816 795 6341, shown in the footer as WhatsApp
   phone: "08167956341",
-  email: "ariseandshineworlddigital@gmail.com",
+  email: "contact@ariseandshineworlddigital.com",
+  facebook: "https://www.facebook.com/share/19fzgLfb9T/",
+
+  // Owner order alerts: both of these numbers get a WhatsApp message whenever an order is placed.
+  // (Sent by the notify-owner function. See the note at the top of supabase/functions/notify-owner/index.ts)
+  ownerWhatsapp: ["2349134487573", "2348167956341"],
   address: "lambu phase 1,keffi Nasarawa state, Nigeria",
 
   // Shown to customers who choose "Pay by bank transfer". Leave empty to hide that option.
