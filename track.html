@@ -32,6 +32,16 @@ function render(o, notice) {
   var steps = ["placed", "confirmed", "processing", o.delivery_method === "pickup" ? "ready_for_pickup" : "out_for_delivery", "delivered"];
   var idx = steps.indexOf(o.status), html = "";
   if (notice) html += '<div class="msg ' + notice.cls + '">' + notice.text + "</div>";
+  if ((qs.get("new") || qs.get("paid")) && A.C.whatsapp) {
+    var waMsg = "Hello " + A.C.name + ", I just placed order " + o.ref + ".\n" +
+      (o.items || []).map(function (i) { return i.qty + " x " + i.name; }).join("\n") +
+      "\nTotal: " + A.money(o.total) + "\nPayment: " + (o.payment_status === "paid" ? "Paid" : o.payment_method === "transfer" ? "Bank transfer" : "Pending") +
+      "\nName: " + o.customer_name + "\nPhone: " + o.phone +
+      "\n" + (o.delivery_method === "pickup" ? "Pickup" : "Delivery to " + [o.address, o.city, o.state].filter(Boolean).join(", "));
+    html += '<div class="panel" style="margin-bottom:16px"><p class="note" style="margin-bottom:10px">Tap the button to send your order details to us on WhatsApp so we can confirm it faster.</p>' +
+      '<a class="btn primary" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px" href="https://wa.me/' + A.esc(String(A.C.whatsapp).replace(/\D/g, "")) + "?text=" + encodeURIComponent(waMsg) + '">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M3 21l1.6-4.8A8.5 8.5 0 1 1 8 19.6z"/><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.6-2-1-1 .8c-1-.4-2-1.4-2.4-2.4l.8-1-1-2z"/></svg>Send order on WhatsApp</a></div>';
+  }
   var paidTag = o.payment_status === "paid" ? '<span class="tag ok">Paid</span>' : o.payment_status === "failed" ? '<span class="tag bad">Payment failed</span>' : '<span class="tag warn">Payment pending</span>';
   html += '<div class="panel" style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><h2 style="margin:0">Order ' + A.esc(o.ref) + "</h2>" + paidTag + "</div>" +
     '<p class="note">Placed ' + fmt(o.created_at) + "</p>" +
