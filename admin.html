@@ -123,8 +123,35 @@ function load(quiet) {
   if (!quiet) $("#view").innerHTML = '<div class="empty">Loading…</div>';
   return Promise.all([A.admin.orders(), A.admin.products()]).then(function (r) {
     ORDERS = r[0] || []; PRODUCTS = r[1] || [];
-    return A.getSettings().then(function (s) { A.syncCats(PRODUCTS, s); }).then(function () { render(); });
+    return A.getSettings().then(function (s) { A.syncCats(PRODUCTS, s); }).then(function () { render(); if (!WATCH) startWatch(); });
   }).catch(function (e) { $("#view").innerHTML = '<div class="msg bad">Could not load data. ' + A.esc(e.message) + "</div>"; fail(e); });
+}
+/* ---------- live new-order alert (while the admin page is open) ---------- */
+var WATCH = 0, BASE_TITLE = document.title, UNSEEN = 0;
+function beep() {
+  try {
+    var Ctx = window.AudioContext || window.webkitAudioContext, c = new Ctx(), o = c.createOscillator(), g = c.createGain();
+    o.type = "sine"; o.frequency.value = 880; o.connect(g); g.connect(c.destination); g.gain.setValueAtTime(0.0001, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.25, c.currentTime + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.6);
+    o.start(); o.stop(c.currentTime + 0.65);
+  } catch (e) {}
+}
+function startWatch() {
+  WATCH = setInterval(function () {
+    A.admin.orders().then(function (list) {
+      list = list || [];
+      var known = {}; ORDERS.forEach(function (o) { known[o.id] = o; });
+      var fresh = list.filter(function (o) { return !known[o.id]; });
+      var paidNow = list.filter(function (o) { return known[o.id] && known[o.id].payment_status !== "paid" && o.payment_status === "paid"; });
+      if (!fresh.length && !paidNow.length) return;
+      ORDERS = list;
+      var msg = fresh.length ? "New order " + fresh[0].ref + " · " + A.money(fresh[0].total) : "Payment received for " + paidNow[0].ref;
+      A.toast(msg); beep();
+      if (document.hidden) { UNSEEN += fresh.length + paidNow.length; document.title = "(" + UNSEEN + ") " + BASE_TITLE; }
+      if (!$("#drawerRoot").innerHTML && (view === "overview" || view === "orders")) render(); else tabsHtml();
+    }).catch(function () {});
+  }, 20000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) { UNSEEN = 0; document.title = BASE_TITLE; } });
 }
 function go(v) { view = v; SEL = {}; location.hash = v; render(); window.scrollTo(0, 0); }
 function tabsHtml() {
