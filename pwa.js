@@ -1,0 +1,994 @@
+/*! Camplugie — pwa.js
+ *  ONE file that gives every page:
+ *    1. the animated launch splash (once per app launch)
+ *    2. a slim top loading bar between pages
+ *    3. CPLoader  – overlay / spinner / skeleton helpers you can call from any page
+ *    4. service-worker registration + "app updated" toast
+ *    5. install prompt (Android/Chrome) and "Add to Home Screen" hint (iPhone)
+ *    6. CamplugiePWA.share() – native share sheet with a WhatsApp fallback
+ *
+ *  Add this to the <head> of every page (tools/patch-html.js does it for you):
+ *      <script src="/pwa.js"></script>
+ */
+(function () {
+  'use strict';
+  if (window.__cpPwa) return;
+  window.__cpPwa = true;
+
+  var doc = document, root = doc.documentElement;
+  var page = (location.pathname.replace(/\/+$/, '').split('/').pop() || 'index').replace(/\.html$/, '') || 'index';
+
+  /* ---------- settings you may want to tweak ---------- */
+  var APK_URL       = '/downloads/camplugie.apk';
+  var SPLASH_MIN_MS = 1500;   // splash always plays at least this long
+  var SPLASH_MAX_MS = 6000;   // …and never blocks the app longer than this
+  var NO_SPLASH = ['offline', 'call', 'group-call', 'turn-test', 'admin', 'ambassador', 'download', 'preview'];
+  var NO_PROMPT = ['offline', 'call', 'group-call', 'turn-test', 'admin', 'ambassador', 'download', 'preview',
+                   'auth', 'onboarding', 'verify-email', 'banned', 'chat-thread', 'group-thread',
+                   'create', 'cart', 'wallet', 'orders', 'swift', 'listing'];
+  var NO_TOAST  = ['call', 'group-call'];
+
+  /* ---------- tiny helpers ---------- */
+  function has(list) { return list.indexOf(page) !== -1; }
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; }
+  function sess(k, v)  { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) {} return null; }
+  function isStandalone() {
+    return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) ||
+           window.navigator.standalone === true ||
+           (doc.referrer || '').indexOf('android-app://') === 0;
+  }
+  function isIOS() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function isAndroid() { return /android/i.test(navigator.userAgent); }
+  function inAppBrowser() { return /FBAN|FBAV|Instagram|Line\/|Twitter|MicroMessenger|TikTok/i.test(navigator.userAgent); }
+  function addStyle(id, css) {
+    if (doc.getElementById(id)) return;
+    var s = doc.createElement('style'); s.id = id; s.textContent = css;
+    (doc.head || root).appendChild(s);
+  }
+
+  /* =====================================================================
+   *  CSS  (all class names are prefixed cps- / cp- so they can't clash)
+   * ===================================================================== */
+  var SPLASH_CSS = [
+    '#cp-splash{position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;',
+    'background:radial-gradient(circle at 18% -8%,rgba(124,58,237,.42),transparent 44%),radial-gradient(circle at 92% 108%,rgba(56,189,248,.18),transparent 42%),linear-gradient(180deg,#0E0A1D,#090714);',
+    'transition:opacity .5s ease,transform .5s ease}',
+    '#cp-splash.cps-out{opacity:0;transform:scale(1.04);pointer-events:none}',
+    '.cps-inner{display:flex;flex-direction:column;align-items:center;gap:20px;padding-bottom:5vh}',
+    '.cps-mark{width:min(52vw,220px);height:auto;overflow:visible}',
+    '.cps-word{width:min(64vw,250px);height:auto;overflow:visible}',
+    '.cps-bar{width:min(32vw,116px);height:3px;border-radius:3px;background:rgba(167,139,250,.16);overflow:hidden;opacity:0;animation:cps-fade .4s ease .9s forwards}',
+    '.cps-bar i{display:block;height:100%;width:45%;border-radius:3px;background:linear-gradient(90deg,#A78BFA,#38BDF8);animation:cps-slide 1.15s ease-in-out infinite}',
+    '.cps-float{animation:cps-float 3.2s ease-in-out 1.6s infinite}',
+    '.cps-rm{stroke-dasharray:1 1.02;stroke-dashoffset:1.01;animation:cps-draw .75s cubic-bezier(.6,0,.25,1) .05s forwards}',
+    '.cps-tail,.cps-shield,.cps-plug,.cps-cap,.cps-node,.cps-dot,.cps-spark{transform-box:fill-box;transform-origin:center}',
+    '.cps-tail{transform-origin:78% 6%;opacity:0;animation:cps-tail .35s cubic-bezier(.3,1.5,.5,1) .5s forwards}',
+    '.cps-shield{opacity:0;animation:cps-pop .6s cubic-bezier(.3,1.4,.5,1) .2s forwards}',
+    '.cps-hex{stroke-dasharray:1 1.02;stroke-dashoffset:1.01;animation:cps-draw .5s ease .55s forwards}',
+    '.cps-node{opacity:0;animation:cps-node .4s cubic-bezier(.3,1.6,.5,1) calc(.62s + var(--i)*.06s) forwards,cps-pulse 2.4s ease-in-out calc(1.7s + var(--i)*.2s) infinite;animation-fill-mode:forwards,none}',
+    '.cps-plug{opacity:0;animation:cps-plug .55s cubic-bezier(.3,1.3,.5,1) .5s forwards}',
+    '.cps-spark{opacity:0;animation:cps-spark .6s ease-out .95s forwards}',
+    '.cps-cap{opacity:0;animation:cps-cap .55s cubic-bezier(.3,1.5,.5,1) .7s forwards}',
+    '.cps-stroke{stroke-dasharray:1 1.02;stroke-dashoffset:1.01;animation:cps-draw .45s cubic-bezier(.5,0,.2,1) calc(.75s + var(--i)*.04s) forwards}',
+    '.cps-dot{transform:scale(0);animation:cps-dot .35s cubic-bezier(.3,1.7,.5,1) calc(.85s + var(--i)*.04s) forwards}',
+    '@keyframes cps-draw{to{stroke-dashoffset:0}}',
+    '@keyframes cps-pop{0%{opacity:0;transform:scale(.55)}65%{opacity:1;transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}',
+    '@keyframes cps-tail{0%{opacity:0;transform:scale(0)}100%{opacity:1;transform:scale(1)}}',
+    '@keyframes cps-node{0%{opacity:0;transform:scale(0)}100%{opacity:1;transform:scale(1)}}',
+    '@keyframes cps-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.28)}}',
+    '@keyframes cps-plug{0%{opacity:0;transform:translate(52px,-52px) rotate(10deg)}60%{opacity:1;transform:translate(-5px,5px)}100%{opacity:1;transform:none}}',
+    '@keyframes cps-spark{0%{opacity:.95;transform:scale(.3)}100%{opacity:0;transform:scale(2.4)}}',
+    '@keyframes cps-cap{0%{opacity:0;transform:translateY(-40px) rotate(-6deg)}65%{opacity:1;transform:translateY(5px)}100%{opacity:1;transform:none}}',
+    '@keyframes cps-dot{to{transform:scale(1)}}',
+    '@keyframes cps-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}',
+    '@keyframes cps-fade{to{opacity:1}}',
+    '@keyframes cps-slide{0%{transform:translateX(-110%)}100%{transform:translateX(250%)}}',
+    '@media (prefers-reduced-motion:reduce){#cp-splash *{animation:none!important}',
+    '.cps-rm,.cps-hex,.cps-stroke{stroke-dashoffset:0}.cps-tail,.cps-shield,.cps-plug,.cps-cap,.cps-node{opacity:1}',
+    '.cps-dot{transform:none}.cps-bar{opacity:1}.cps-bar i{width:100%}}'
+  ].join('');
+
+  var UI_CSS = [
+    /* top loading bar */
+    '#cp-topbar{position:fixed;top:0;left:0;right:0;height:3px;z-index:2147483500;pointer-events:none;opacity:0;transition:opacity .25s}',
+    '#cp-topbar.on{opacity:1}',
+    '#cp-topbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#A78BFA,#7C6CFF,#38BDF8);box-shadow:0 0 10px rgba(124,108,255,.7);border-radius:0 3px 3px 0;transition:width .35s ease}',
+    /* spinner */
+    '.cp-spinner{display:inline-block;width:var(--s,28px);height:var(--s,28px);border-radius:50%;box-sizing:border-box;',
+    'border:calc(var(--s,28px)/9) solid rgba(167,139,250,.2);border-top-color:#A78BFA;border-right-color:#38BDF8;animation:cp-spin .75s linear infinite;vertical-align:middle}',
+    '.cp-spinner.sm{--s:16px}.cp-spinner.lg{--s:44px}',
+    '.cp-dots{display:inline-flex;gap:5px;align-items:center}.cp-dots i{width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#A78BFA,#38BDF8);animation:cp-bounce 1s ease-in-out infinite}',
+    '.cp-dots i:nth-child(2){animation-delay:.15s}.cp-dots i:nth-child(3){animation-delay:.3s}',
+    /* skeletons */
+    '.cp-skeleton,.cp-skel-line,.cp-skel-circle,.cp-skel-block{background:linear-gradient(90deg,var(--surface2,#1A1729) 25%,var(--surface3,#242039) 50%,var(--surface2,#1A1729) 75%);background-size:200% 100%;animation:cp-shimmer 1.4s linear infinite;border-radius:10px}',
+    '.cp-skel-line{height:12px;margin:8px 0}.cp-skel-line.w60{width:60%}.cp-skel-line.w40{width:40%}',
+    '.cp-skel-circle{width:44px;height:44px;border-radius:50%;flex:none}.cp-skel-block{height:150px;border-radius:16px}',
+    '.cp-skel-card{display:flex;gap:12px;align-items:center;padding:14px;border-radius:16px;background:var(--surface,#12101D);border:1px solid var(--border,rgba(255,255,255,.06));margin:10px 0}',
+    '.cp-skel-card>div:not(.cp-skel-circle){flex:1}',
+    /* overlay */
+    '#cp-overlay{position:fixed;inset:0;z-index:2147483400;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;',
+    'background:rgba(9,7,20,.72);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .2s;color:#F8F6FF;font:600 14px/1.4 system-ui,-apple-system,sans-serif;text-align:center;padding:24px}',
+    '#cp-overlay.on{opacity:1;pointer-events:auto}',
+    /* toast */
+    '#cp-toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);z-index:2147483300;display:flex;gap:14px;align-items:center;',
+    'background:rgba(26,23,41,.96);color:#F8F6FF;border:1px solid rgba(167,139,250,.28);border-radius:14px;padding:11px 16px;font:600 13.5px/1.3 system-ui,-apple-system,sans-serif;',
+    'box-shadow:0 10px 30px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:all .28s ease;max-width:calc(100vw - 32px)}',
+    '#cp-toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}',
+    '#cp-toast button{background:none;border:0;color:#A78BFA;font:700 13.5px system-ui,sans-serif;cursor:pointer;padding:2px 0}',
+    /* install banner */
+    '#cp-install{position:fixed;left:12px;right:12px;bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:2147483200;display:flex;align-items:center;gap:12px;',
+    'padding:12px 12px 12px 14px;border-radius:20px;color:#F8F6FF;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;',
+    'background:linear-gradient(135deg,rgba(38,28,86,.96),rgba(18,16,29,.96));border:1px solid rgba(167,139,250,.32);',
+    '-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 18px 44px rgba(0,0,0,.5),0 0 0 1px rgba(124,58,237,.12);',
+    'transform:translateY(30px);opacity:0;transition:all .38s cubic-bezier(.2,.9,.3,1.1);max-width:460px;margin:0 auto}',
+    '#cp-install.on{transform:none;opacity:1}',
+    '#cp-install img{width:46px;height:46px;border-radius:12px;flex:none}',
+    '#cp-install .t{flex:1;min-width:0}#cp-install .t b{display:block;font-size:14.5px;margin-bottom:2px}',
+    '#cp-install .t span{display:block;font-size:12.5px;color:#C9C3DE;line-height:1.35}',
+    '#cp-install .t svg{width:14px;height:14px;vertical-align:-2px;margin:0 1px}',
+    '#cp-install .go{background:linear-gradient(135deg,#7C3AED,#4F8DF7);color:#fff;border:0;border-radius:12px;padding:10px 16px;font:700 13.5px system-ui,sans-serif;cursor:pointer;flex:none}',
+    '#cp-install .x{background:none;border:0;color:#8D86AA;font-size:18px;cursor:pointer;padding:4px 6px;flex:none}',
+    '@keyframes cp-spin{to{transform:rotate(360deg)}}@keyframes cp-shimmer{to{background-position:-200% 0}}',
+    '@keyframes cp-bounce{0%,80%,100%{transform:scale(.6);opacity:.5}40%{transform:scale(1);opacity:1}}'
+  ].join('');
+
+  var MARK_SVG = "<svg class=\"cps-mark\" viewBox=\"0 0 512 512\" aria-hidden=\"true\"><defs>\n<linearGradient id=\"s-gr\" gradientUnits=\"userSpaceOnUse\" x1=\"70\" y1=\"40\" x2=\"460\" y2=\"480\">\n  <stop offset=\"0\" stop-color=\"#F0A6FF\"/><stop offset=\".30\" stop-color=\"#B77DFF\"/>\n  <stop offset=\".62\" stop-color=\"#7C6CFF\"/><stop offset=\"1\" stop-color=\"#38C4F5\"/>\n</linearGradient>\n<linearGradient id=\"s-gp\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\">\n  <stop offset=\"0\" stop-color=\"#8ED8FF\"/><stop offset=\"1\" stop-color=\"#3B82F6\"/>\n</linearGradient>\n<linearGradient id=\"s-gs\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">\n  <stop offset=\"0\" stop-color=\"#3E31A6\"/><stop offset=\"1\" stop-color=\"#1D1364\"/>\n</linearGradient>\n<linearGradient id=\"s-gm\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\">\n  <stop offset=\"0\" stop-color=\"#A78BFA\"/><stop offset=\"1\" stop-color=\"#38BDF8\"/>\n</linearGradient>\n<linearGradient id=\"s-gc\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">\n  <stop offset=\"0\" stop-color=\"#FFFFFF\"/><stop offset=\"1\" stop-color=\"#D5CCFF\"/>\n</linearGradient>\n<radialGradient id=\"s-gn\" cx=\".35\" cy=\".3\" r=\".8\">\n  <stop offset=\"0\" stop-color=\"#F3EEFF\"/><stop offset=\"1\" stop-color=\"#7C6CFF\"/>\n</radialGradient>\n<linearGradient id=\"s-gh\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\">\n  <stop offset=\"0\" stop-color=\"#fff\" stop-opacity=\".55\"/><stop offset=\".5\" stop-color=\"#fff\" stop-opacity=\"0\"/>\n</linearGradient>\n<filter id=\"s-glow\" x=\"-60%\" y=\"-60%\" width=\"220%\" height=\"220%\"><feGaussianBlur stdDeviation=\"5\"/></filter>\n<mask id=\"s-rm\" maskUnits=\"userSpaceOnUse\" x=\"0\" y=\"0\" width=\"512\" height=\"512\"><path class=\"cps-rm\" d=\"M323.8 72.0 L308.2 67.6 L292.3 64.6 L276.1 62.9 L259.9 62.5 L243.8 63.6 L227.7 65.9 L212.0 69.6 L196.6 74.6 L181.6 80.9 L167.3 88.4 L153.6 97.1 L140.7 106.9 L128.6 117.7 L117.5 129.6 L107.5 142.3 L98.5 155.8 L90.7 170.0 L84.1 184.8 L78.8 200.1 L74.7 215.8 L72.0 231.7 L70.7 247.9 L70.7 264.1 L72.0 280.3 L74.7 296.2 L78.8 311.9 L84.1 327.2 L90.7 342.0 L98.5 356.2 L107.5 369.7 L117.5 382.4 L128.6 394.3 L140.7 405.1 L153.6 414.9 L167.2 423.6 L181.6 431.1 L196.6 437.4 L212.0 442.4 L227.7 446.1 L243.8 448.4 L259.9 449.5 L276.1 449.1 L292.3 447.4 L308.2 444.4 L323.8 440.0 L339.0 434.4 L353.6 427.5 L367.7 419.4 L381.0 410.1 L393.5 399.8 L405.1 388.5 L415.6 376.2 L425.2 363.1 L433.6 349.2 L440.8 334.7 L446.7 319.6 L451.4 304.1 L454.8 288.3 L456.8 272.2 L457.5 256.0\" fill=\"none\" stroke=\"#fff\" stroke-width=\"120\" stroke-linecap=\"round\" pathLength=\"1\"/></mask></defs><g class=\"cps-float\"><g mask=\"url(#s-rm)\"><path d=\"M325.2 43.0 A224 224 0 1 0 480.0 256.0 A22.5 22.5 0 0 0 435.0 256.0 A163 163 0 1 1 322.4 101.0 A29.0 29.0 0 0 0 325.2 43.0 Z\" fill=\"url(#s-gr)\"/><path d=\"M325.2 43.0 A224 224 0 1 0 480.0 256.0 A22.5 22.5 0 0 0 435.0 256.0 A163 163 0 1 1 322.4 101.0 A29.0 29.0 0 0 0 325.2 43.0 Z\" fill=\"url(#s-gh)\"/></g><path class=\"cps-tail\" d=\"M118.8 408.3 Q 96 452 66 494 Q 150 492 220.4 457.9 Z\" fill=\"url(#s-gr)\"/><g class=\"cps-plug\"><rect x=\"392\" y=\"40\" width=\"20\" height=\"74\" rx=\"10\" fill=\"url(#s-gp)\"/><rect x=\"444\" y=\"40\" width=\"20\" height=\"74\" rx=\"10\" fill=\"url(#s-gp)\"/><rect x=\"369\" y=\"98\" width=\"112\" height=\"120\" rx=\"22\" fill=\"url(#s-gp)\"/><rect x=\"376\" y=\"104\" width=\"98\" height=\"46\" rx=\"16\" fill=\"#fff\" opacity=\".16\"/></g><circle class=\"cps-spark\" cx=\"440\" cy=\"228\" r=\"22\" fill=\"none\" stroke=\"#8ED8FF\" stroke-width=\"5\"/><g class=\"cps-shield\"><path d=\"M170 326 L214 352 L160 386 Z\" fill=\"#2A1E86\" stroke=\"url(#s-gm)\" stroke-width=\"9\" stroke-linejoin=\"round\"/><path d=\"M258 146 C304 146 346 160 376 182 L376 268 C376 318 324 352 258 378 C192 352 140 318 140 268 L140 182 C170 160 212 146 258 146 Z\" fill=\"url(#s-gs)\" stroke=\"url(#s-gm)\" stroke-width=\"9\" stroke-linejoin=\"round\"/></g><path class=\"cps-hex\" d=\"M262 172 L348 210 L348 300 L262 338 L176 300 L176 210 Z\" fill=\"none\" stroke=\"#6F7FF0\" stroke-width=\"5\" stroke-linejoin=\"round\" opacity=\".85\" pathLength=\"1\"/><g class=\"cps-node\" style=\"--i:0\"><circle cx=\"262\" cy=\"172\" r=\"17\" fill=\"#8B7BFF\" opacity=\".55\" filter=\"url(#s-glow)\"/><circle cx=\"262\" cy=\"172\" r=\"11.5\" fill=\"url(#s-gn)\"/></g><g class=\"cps-node\" style=\"--i:1\"><circle cx=\"348\" cy=\"210\" r=\"17\" fill=\"#8B7BFF\" opacity=\".55\" filter=\"url(#s-glow)\"/><circle cx=\"348\" cy=\"210\" r=\"11.5\" fill=\"url(#s-gn)\"/></g><g class=\"cps-node\" style=\"--i:2\"><circle cx=\"348\" cy=\"300\" r=\"17\" fill=\"#8B7BFF\" opacity=\".55\" filter=\"url(#s-glow)\"/><circle cx=\"348\" cy=\"300\" r=\"11.5\" fill=\"url(#s-gn)\"/></g><g class=\"cps-node\" style=\"--i:3\"><circle cx=\"262\" cy=\"338\" r=\"17\" fill=\"#8B7BFF\" opacity=\".55\" filter=\"url(#s-glow)\"/><circle cx=\"262\" cy=\"338\" r=\"11.5\" fill=\"url(#s-gn)\"/></g><g class=\"cps-node\" style=\"--i:4\"><circle cx=\"176\" cy=\"300\" r=\"17\" fill=\"#8B7BFF\" opacity=\".55\" filter=\"url(#s-glow)\"/><circle cx=\"176\" cy=\"300\" r=\"11.5\" fill=\"url(#s-gn)\"/></g><g class=\"cps-node\" style=\"--i:5\"><circle cx=\"176\" cy=\"210\" r=\"17\" fill=\"#8B7BFF\" opacity=\".55\" filter=\"url(#s-glow)\"/><circle cx=\"176\" cy=\"210\" r=\"11.5\" fill=\"url(#s-gn)\"/></g><g class=\"cps-cap\"><path d=\"M226 256 L226 284 C226 298 290 298 290 284 L290 256 Z\" fill=\"#9AA6FF\" opacity=\".95\"/><path d=\"M258 214 L326 244 L258 274 L190 244 Z\" fill=\"url(#s-gc)\"/><path d=\"M258 214 L326 244 L258 274 Z\" fill=\"#B9B0F6\" opacity=\".35\"/><path d=\"M204 252 L204 292\" stroke=\"#C9C1FF\" stroke-width=\"5\" stroke-linecap=\"round\"/><circle cx=\"204\" cy=\"296\" r=\"6\" fill=\"#C9C1FF\"/></g></g></svg>";
+  var WORD_SVG = "<svg class=\"cps-word\" viewBox=\"-8 -70 341 100\" aria-hidden=\"true\"><defs><linearGradient id=\"s-gw\" gradientUnits=\"userSpaceOnUse\" x1=\"0\" y1=\"0\" x2=\"325\" y2=\"0\"><stop offset=\"0\" stop-color=\"#B77DFF\"/><stop offset=\".5\" stop-color=\"#C9C3FF\"/><stop offset=\"1\" stop-color=\"#5FD3F7\"/></linearGradient></defs><g fill=\"none\" stroke=\"url(#s-gw)\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M 27.9 -30.7 A 16 16 0 1 0 27.9 -9.3\" class=\"cps-stroke\" style=\"--i:0\" pathLength=\"1\"/><path d=\"M 55 -36 A 16 16 0 1 0 55 -4 A 16 16 0 1 0 55 -36\" class=\"cps-stroke\" style=\"--i:1\" pathLength=\"1\"/><path d=\"M 71 -36 V -4\" class=\"cps-stroke\" style=\"--i:1\" pathLength=\"1\"/><path d=\"M 83 -36 V -4\" class=\"cps-stroke\" style=\"--i:2\" pathLength=\"1\"/><path d=\"M 83 -24 A 12 12 0 0 1 107 -24 V -4\" class=\"cps-stroke\" style=\"--i:2\" pathLength=\"1\"/><path d=\"M 107 -24 A 12 12 0 0 1 131 -24 V -4\" class=\"cps-stroke\" style=\"--i:2\" pathLength=\"1\"/><path d=\"M 143 -36 V 20\" class=\"cps-stroke\" style=\"--i:3\" pathLength=\"1\"/><path d=\"M 159 -36 A 16 16 0 1 1 159 -4 A 16 16 0 1 1 159 -36\" class=\"cps-stroke\" style=\"--i:3\" pathLength=\"1\"/><path d=\"M 189 -60 V -4\" class=\"cps-stroke\" style=\"--i:4\" pathLength=\"1\"/><path d=\"M 201 -36 V -16 A 12 12 0 0 0 225 -16\" class=\"cps-stroke\" style=\"--i:5\" pathLength=\"1\"/><path d=\"M 225 -36 V -4\" class=\"cps-stroke\" style=\"--i:5\" pathLength=\"1\"/><path d=\"M 253 -36 A 16 16 0 1 0 253 -4 A 16 16 0 1 0 253 -36\" class=\"cps-stroke\" style=\"--i:6\" pathLength=\"1\"/><path d=\"M 269 -36 V 4 C 269 16 263 22 251 22\" class=\"cps-stroke\" style=\"--i:6\" pathLength=\"1\"/><path d=\"M 281 -36 V -4\" class=\"cps-stroke\" style=\"--i:7\" pathLength=\"1\"/><circle cx=\"281.0\" cy=\"-54\" r=\"5.4\" stroke=\"none\" fill=\"url(#s-gw)\" class=\"cps-dot\" style=\"--i:7\"/><path d=\"M 293 -20 H 325 A 16 16 0 1 0 321 -9\" class=\"cps-stroke\" style=\"--i:8\" pathLength=\"1\"/></g></svg>";
+
+  /* =====================================================================
+   *  1. LAUNCH SPLASH
+   * ===================================================================== */
+  var splashEl = null;
+  function startSplash(force) {
+    if (splashEl) return;
+    if (!force) {
+      if (has(NO_SPLASH) || sess('cp_splash') || /[?&]nosplash\b/.test(location.search)) return;
+    }
+    addStyle('cps-css', SPLASH_CSS);
+    splashEl = doc.createElement('div');
+    splashEl.id = 'cp-splash';
+    splashEl.setAttribute('role', 'status');
+    splashEl.setAttribute('aria-label', 'Loading Camplugie');
+    splashEl.innerHTML = '<div class="cps-inner">' + MARK_SVG + WORD_SVG + '<div class="cps-bar"><i></i></div></div>';
+    root.appendChild(splashEl);
+
+    var t0 = Date.now(), finished = false, el = splashEl;
+    function finish() {
+      if (finished) return; finished = true;
+      el.classList.add('cps-out');
+      if (!force) sess('cp_splash', '1');          // only counts once it has fully played
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); if (splashEl === el) splashEl = null; }, 550);
+    }
+    function ready() { setTimeout(finish, force ? SPLASH_MIN_MS + 600 : Math.max(0, SPLASH_MIN_MS - (Date.now() - t0))); }
+    if (force || doc.readyState !== 'loading') ready(); else doc.addEventListener('DOMContentLoaded', ready);   // don't wait for slow images
+    if (!force) setTimeout(finish, SPLASH_MAX_MS);
+  }
+
+  /* =====================================================================
+   *  2. TOP LOADING BAR
+   * ===================================================================== */
+  var barEl, barTimer, barPct = 0;
+  var Bar = {
+    start: function () {
+      if (!barEl) { barEl = doc.createElement('div'); barEl.id = 'cp-topbar'; barEl.innerHTML = '<i></i>'; root.appendChild(barEl); }
+      clearInterval(barTimer); barPct = 12;
+      barEl.firstChild.style.width = barPct + '%'; barEl.classList.add('on');
+      barTimer = setInterval(function () { barPct += (90 - barPct) * 0.08; barEl.firstChild.style.width = barPct + '%'; }, 250);
+      clearTimeout(Bar._safety); Bar._safety = setTimeout(Bar.done, 12000);
+    },
+    done: function () {
+      if (!barEl) return; clearInterval(barTimer);
+      barEl.firstChild.style.width = '100%';
+      setTimeout(function () { barEl.classList.remove('on'); setTimeout(function () { barEl.firstChild.style.width = '0'; }, 300); }, 220);
+    }
+  };
+
+  /* =====================================================================
+   *  3. CPLoader  (use from any page)
+   * ===================================================================== */
+  var overlayEl, overlayCount = 0;
+  var CPLoader = {
+    show: function (msg) {
+      overlayCount++;
+      if (!overlayEl) {
+        overlayEl = doc.createElement('div'); overlayEl.id = 'cp-overlay'; overlayEl.setAttribute('role', 'alert');
+        overlayEl.innerHTML = '<span class="cp-spinner lg"></span><div class="msg"></div>';
+        (doc.body || root).appendChild(overlayEl);
+      }
+      overlayEl.querySelector('.msg').textContent = msg || '';
+      requestAnimationFrame(function () { overlayEl.classList.add('on'); });
+    },
+    hide: function () { overlayCount = Math.max(0, overlayCount - 1); if (!overlayCount && overlayEl) overlayEl.classList.remove('on'); },
+    hideAll: function () { overlayCount = 0; if (overlayEl) overlayEl.classList.remove('on'); },
+    wrap: function (promise, msg) {
+      CPLoader.show(msg);
+      return Promise.resolve(promise).then(function (v) { CPLoader.hide(); return v; }, function (e) { CPLoader.hide(); throw e; });
+    },
+    spinner: function (size) { return '<span class="cp-spinner" style="--s:' + (size || 28) + 'px"></span>'; },
+    skeletonCards: function (n) {
+      var h = ''; n = n || 4;
+      while (n--) h += '<div class="cp-skel-card"><div class="cp-skel-circle"></div><div><div class="cp-skel-line"></div><div class="cp-skel-line w60"></div></div></div>';
+      return h;
+    },
+    bar: Bar
+  };
+  window.CPLoader = CPLoader;
+
+  /* toast */
+  var toastEl, toastTimer;
+  function toast(msg, actionLabel, action, ms) {
+    if (!toastEl) { toastEl = doc.createElement('div'); toastEl.id = 'cp-toast'; (doc.body || root).appendChild(toastEl); }
+    toastEl.innerHTML = '';
+    var s = doc.createElement('span'); s.textContent = msg; toastEl.appendChild(s);
+    if (actionLabel) { var b = doc.createElement('button'); b.textContent = actionLabel; b.onclick = function () { toastEl.classList.remove('on'); action && action(); }; toastEl.appendChild(b); }
+    requestAnimationFrame(function () { toastEl.classList.add('on'); });
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { toastEl.classList.remove('on'); }, ms || 6000);
+  }
+
+  /* =====================================================================
+   *  4. SERVICE WORKER
+   * ===================================================================== */
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    var hadController = !!navigator.serviceWorker.controller, notified = false;
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function (e) { console.warn('[pwa] SW registration failed', e); });
+    });
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!hadController) { hadController = true; return; }          // very first install – nothing to announce
+      if (notified || has(NO_TOAST)) return; notified = true;
+      toast('Camplugie was updated', 'Refresh', function () { location.reload(); }, 12000);
+    });
+  }
+
+  /* =====================================================================
+   *  5. INSTALL
+   * ===================================================================== */
+  var deferred = null, listeners = [];
+  function state() {
+    return { canInstall: !!deferred, standalone: isStandalone(), ios: isIOS(), android: isAndroid(),
+             installed: isStandalone() || store('cp_installed') === '1', inApp: inAppBrowser() };
+  }
+  function notify() { var s = state(); listeners.forEach(function (fn) { try { fn(s); } catch (e) {} }); }
+
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; notify(); scheduleBanner(); });
+  window.addEventListener('appinstalled', function () {
+    deferred = null; store('cp_installed', '1'); removeBanner(); notify();
+    toast('Camplugie is installed 🎉');
+  });
+  try { if (window.matchMedia) matchMedia('(display-mode: standalone)').addEventListener('change', notify); } catch (e) {}
+
+  function install() {
+    if (!deferred) return Promise.resolve({ outcome: 'unavailable' });
+    var d = deferred; deferred = null;
+    d.prompt();
+    return d.userChoice.then(function (r) { notify(); return r; });
+  }
+
+  var bannerEl, bannerTimer;
+  function snoozed() {
+    var until = +store('cp_install_snooze') || 0;
+    return Date.now() < until;
+  }
+  function removeBanner() { if (bannerEl) { bannerEl.classList.remove('on'); var b = bannerEl; setTimeout(function () { b.parentNode && b.parentNode.removeChild(b); }, 400); bannerEl = null; } }
+  function dismissBanner() {
+    var n = (+store('cp_install_dismissed') || 0) + 1; store('cp_install_dismissed', String(n));
+    store('cp_install_snooze', String(Date.now() + (n >= 3 ? 30 : 7) * 864e5));
+    removeBanner();
+  }
+  var SHARE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+  function showBanner() {
+    if (bannerEl || isStandalone() || store('cp_installed') === '1' || snoozed() || has(NO_PROMPT) || inAppBrowser()) return;
+    var ios = isIOS();
+    if (!ios && !deferred) return;
+    bannerEl = doc.createElement('div'); bannerEl.id = 'cp-install'; bannerEl.setAttribute('role', 'dialog');
+    bannerEl.innerHTML = '<img src="/icons/icon-96.png" alt="" width="46" height="46"><div class="t"><b>Install Camplugie</b><span>' +
+      (ios ? 'Tap ' + SHARE_ICON + ' then <b style="display:inline;font-size:inherit">Add to Home Screen</b>' : 'Full-screen, faster, and one tap from your home screen.') +
+      '</span></div>' + (ios ? '' : '<button class="go">Install</button>') + '<button class="x" aria-label="Close">&#10005;</button>';
+    (doc.body || root).appendChild(bannerEl);
+    var go = bannerEl.querySelector('.go');
+    if (go) go.onclick = function () { removeBanner(); install(); };
+    bannerEl.querySelector('.x').onclick = dismissBanner;
+    requestAnimationFrame(function () { requestAnimationFrame(function () { bannerEl && bannerEl.classList.add('on'); }); });
+  }
+  function scheduleBanner() {
+    if (bannerTimer || isStandalone() || has(NO_PROMPT)) return;
+    if (!sess('cp_visit_counted')) { sess('cp_visit_counted', '1'); store('cp_visits', String((+store('cp_visits') || 0) + 1)); }
+    var returning = (+store('cp_visits') || 0) >= 2;
+    bannerTimer = setTimeout(showBanner, returning ? 8000 : 25000);
+  }
+
+  /* =====================================================================
+   *  5b. WEB PUSH — real device notifications (messages, sales, orders…)
+   *      Pairs with the 'push' listener already in sw.js and the
+   *      push_subscriptions table (see sql/camplugie-safety-and-push.sql).
+   * ===================================================================== */
+  // Public key only — safe to ship client-side. Its private half lives in
+  // the VAPID_PRIVATE_KEY env var on the server and never appears in code.
+  var VAPID_PUBLIC_KEY = 'BKzdCP0WJwslEi9pHpmV2ZYEKP0p4EXIoCA4IabQSl97ronS7f3QJ0fdBs-mn_aN_MbYf9CFkmXQ_co2lFGGg0E';
+
+  function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var raw = atob(base64), out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  /* =====================================================================
+   *  NATIVE ANDROID APP (Capacitor). Inside the Play Store app the page runs in a WebView,
+   *  which has no Web Push — notifications come straight from Google's Firebase (FCM) to the
+   *  phone instead, so they arrive even when the app is closed. The native bridge is
+   *  injected into the page as window.Capacitor; we talk to its plugins through that.
+   * ===================================================================== */
+  function isNative() {
+    var c = window.Capacitor;
+    if (!c) return false;
+    try { if (c.isNativePlatform && c.isNativePlatform()) return true; } catch (e) {}
+    try { if (c.getPlatform && c.getPlatform() !== 'web') return true; } catch (e) {}
+    return typeof c.nativePromise === 'function';          // the injected bridge is present
+  }
+  // True when this page is open inside the Camplugie Android app (the app adds "CamplugieApp/" to its
+  // user-agent) — even if the native bridge failed to attach, so we can say so instead of guessing.
+  function inCamplugieApp() { return /CamplugieApp\//.test(navigator.userAgent || ''); }
+  function nat(plugin, method, opts) {
+    try { return window.Capacitor.nativePromise(plugin, method, opts || {}); }
+    catch (e) { return Promise.reject(e); }
+  }
+  function natOn(plugin, event, cb) { try { return window.Capacitor.addListener(plugin, event, cb); } catch (e) { return null; } }
+
+  var nativeToken = null, nativeWaiters = [], nativeListening = false, nativePermCache = 'prompt';
+
+  var NATIVE_CHANNELS = [
+    { id: 'messages', name: 'Messages', description: 'Chats and group chats', importance: 4, visibility: 1, vibration: true, lights: true, lightColor: '#7C3AED' },
+    { id: 'calls',    name: 'Calls & lectures', description: 'Incoming calls and lectures', importance: 5, visibility: 1, vibration: true, lights: true, lightColor: '#34D399' },
+    { id: 'updates',  name: 'Listings, posts & orders', description: 'New listings, posts and order updates', importance: 3, visibility: 1, vibration: true }
+  ];
+
+  // Notification buttons (Reply / Answer / Decline) need a secret that lives on THIS phone. The app keeps
+  // the secret; the server only gets its SHA-256 hash, so it can recognise the phone but never read the secret.
+  function randomHex(bytes) {
+    var a = new Uint8Array(bytes); (window.crypto || window.msCrypto).getRandomValues(a);
+    return Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+  }
+  function sha256Hex(text) {
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function (buf) {
+      return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    });
+  }
+  function replySecret() {
+    var t = null;
+    try { t = localStorage.getItem('cp_reply_token'); } catch (e) {}
+    if (!t || t.length < 32) { t = randomHex(32); try { localStorage.setItem('cp_reply_token', t); } catch (e) {} }
+    return t;
+  }
+  // Resolves to the extra columns to save, or null if this build of the app has no notification buttons
+  // (then the phone simply keeps getting ordinary notifications — nothing breaks).
+  function setupNativeButtons() {
+    var secret = replySecret();
+    return nat('CamplugieNative', 'setReplyToken', { token: secret, api: location.origin })
+      .then(function () { return sha256Hex(secret); })
+      .then(function (hash) { return { reply_token_hash: hash, actions: true, app_version: '2' }; })
+      .catch(function () { return null; });
+  }
+  function saveNativeToken(token, userId) {
+    if (!token || !userId || !window.sb) return Promise.resolve(false);
+    function save(row) { return Promise.resolve(window.sb.from('device_tokens').upsert(row, { onConflict: 'token' })); }
+    var base = { user_id: userId, token: token, platform: 'android' };
+    return setupNativeButtons().then(function (extra) {
+      return save(extra ? Object.assign({}, base, extra) : base).then(function (r) {
+        // Database not updated for the buttons yet? Save the plain token instead of failing.
+        if (r && r.error && /reply_token_hash|actions|app_version/i.test(r.error.message || '')) return save(base);
+        return r;
+      });
+    }).then(function (r) {
+      if (r && r.error) { console.warn('[native] saving device token failed', r.error); return false; }
+      return true;
+    });
+  }
+
+  function handleAppUrl(url) {
+    try {
+      if (!url) return;
+      if (url.indexOf('com.camplugie.app://') === 0) {           // Google sign-in coming back from Chrome
+        nat('Browser', 'close').catch(function () {});
+        var rest = url.slice('com.camplugie.app://'.length);
+        var m = rest.match(/^([^?#]*)([?#].*)?$/);
+        var page = (m && m[1] || 'onboarding').replace(/\/+$/, '') || 'onboarding';
+        if (!/\.html$/.test(page)) page += '.html';
+        location.href = '/' + page + ((m && m[2]) || '');
+      } else if (/^https:\/\/(www\.)?camplugie\.com/i.test(url)) {   // a camplugie.com link / a tapped notification
+        var u = new URL(url), target = u.pathname + u.search + u.hash;
+        if (target !== location.pathname + location.search + location.hash) location.href = target;
+      }
+    } catch (e) { console.warn('[native] app url', e); }
+  }
+
+  // One-time wiring of native events (taps, foreground pushes, token refresh, deep links).
+  function nativeListen() {
+    if (nativeListening || !isNative()) return; nativeListening = true;
+    natOn('PushNotifications', 'registration', function (t) {
+      nativeToken = t && t.value;
+      var uid = window.CP_USER && window.CP_USER.id;
+      (uid ? saveNativeToken(nativeToken, uid) : Promise.resolve(false)).then(function (ok) {
+        nativeWaiters.splice(0).forEach(function (w) { w(ok); });
+      });
+    });
+    natOn('PushNotifications', 'registrationError', function (e) {
+      console.warn('[native] FCM registration failed', e);
+      nativeWaiters.splice(0).forEach(function (w) { w(false); });
+    });
+    // Tapped a notification (app was closed or in the background) → open what it is about.
+    natOn('PushNotifications', 'pushNotificationActionPerformed', function (a) {
+      var d = (a && a.notification && a.notification.data) || {};
+      if (d.url) location.href = d.url;
+    });
+    // A push that arrives while the app is open: Android shows nothing, so show a banner —
+    // except for calls (the in-app ring screen handles those) or the chat you're already in.
+    natOn('PushNotifications', 'pushNotificationReceived', function (n) {
+      var d = (n && n.data) || {};
+      if (d.type === 'call' || d.type === 'group_call') return;
+      try {
+        var here = new URL(d.url || '/', location.origin);
+        if (here.pathname === location.pathname && here.searchParams.get('id') === new URLSearchParams(location.search).get('id')) return;
+      } catch (_) {}
+      var title = n.title || d.title || '', body = n.body || d.body || '';
+      var text = (title ? title + ': ' : '') + body;
+      toast(text.slice(0, 110), d.url ? 'Open' : null, d.url ? function () { location.href = d.url; } : null, 6000);
+    });
+    natOn('App', 'appUrlOpen', function (e) { handleAppUrl(e && e.url); });
+    // The app was started FROM a notification (it wasn't running): open what it was about, once.
+    if (!sess('cp_launch_handled')) {
+      sess('cp_launch_handled', '1');
+      nat('App', 'getLaunchUrl').then(function (r) { if (r && r.url) handleAppUrl(r.url); }, function () {});
+    }
+  }
+
+  function nativeChannels() {
+    return Promise.all(NATIVE_CHANNELS.map(function (c) { return nat('PushNotifications', 'createChannel', c).catch(function () {}); }));
+  }
+  function nativePerm() {
+    return nat('PushNotifications', 'checkPermissions').then(function (r) {
+      nativePermCache = r.receive === 'granted' ? 'granted' : r.receive === 'denied' ? 'denied' : 'prompt';
+      return nativePermCache;
+    }, function () { return 'prompt'; });
+  }
+  // Asks (if `ask`) for the Android notification permission and registers this phone with Firebase.
+  function nativeRegister(user, ask) {
+    nativeListen();
+    if (user && user.id) window.CP_USER = window.CP_USER || user;
+    return nativeChannels().then(nativePerm).then(function (state) {
+      if (state === 'prompt' && ask) return nat('PushNotifications', 'requestPermissions').then(function (r) { return r.receive === 'granted' ? 'granted' : r.receive === 'denied' ? 'denied' : 'prompt'; });
+      return state;
+    }).then(function (state) {
+      nativePermCache = state;
+      if (state !== 'granted') return false;
+      return new Promise(function (resolve) {
+        var t = setTimeout(function () { resolve(false); }, 15000);
+        nativeWaiters.push(function (ok) { clearTimeout(t); resolve(ok); });
+        nat('PushNotifications', 'register').catch(function () { clearTimeout(t); resolve(false); });
+      });
+    }).catch(function (e) { console.warn('[native] register failed', e); return false; });
+  }
+  function nativeUnregister() {
+    var tok = nativeToken;
+    nat('CamplugieNative', 'clearReplyToken').catch(function () {});     // this phone can no longer send replies
+    try { localStorage.removeItem('cp_reply_token'); } catch (e) {}
+    return Promise.resolve(tok && window.sb ? window.sb.from('device_tokens').delete().eq('token', tok) : null).then(function () { return true; }, function () { return true; });
+  }
+  // Remembers which of mic / camera / location were granted inside the app (WebViews can't be asked).
+  function nativeFlag(id, val) { try { if (val) localStorage.setItem('cp_native_perm_' + id, val); return localStorage.getItem('cp_native_perm_' + id); } catch (e) { return null; } }
+
+  function pushSupported() {
+    return isNative() || ('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window);
+  }
+  function pushPermission() { return isNative() ? nativePermCache : (pushSupported() ? Notification.permission : 'unsupported'); }
+
+  // Subscribes THIS device and saves it to push_subscriptions so the server can
+  // reach it. `ask` = true shows the browser permission prompt (must be called
+  // from a tap); false only (re)registers when permission is already granted.
+  // Resolves false (never throws) if declined / unsupported / save fails.
+  function saveSubscription(sub, userId) {
+    var j = sub.toJSON();
+    if (!j.keys) return Promise.resolve(false);
+    var row = { user_id: userId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, user_agent: (navigator.userAgent || '').slice(0, 200) };
+    function save(r0) { return window.sb.from('push_subscriptions').upsert(r0, { onConflict: 'endpoint' }); }
+    return save(row).then(function (r) {
+      // Older database without the user_agent column yet? Save without it rather than fail.
+      if (r && r.error && /user_agent/i.test(r.error.message || '')) { delete row.user_agent; return save(row); }
+      return r;
+    }).then(function (r) {
+      if (r && r.error) { console.warn('[pwa] saving push subscription failed', r.error); return false; }
+      return true;
+    });
+  }
+
+  function subscribePush(userId, ask) {
+    if (!pushSupported() || !userId || !window.sb) return Promise.resolve(false);
+    if (ask === undefined) ask = true;
+    if (isNative()) return nativeRegister({ id: userId }, ask);
+    var permP = Notification.permission === 'default' && ask
+      ? Notification.requestPermission()
+      : Promise.resolve(Notification.permission);
+    return permP.then(function (perm) {
+      if (perm !== 'granted') return false;
+      return navigator.serviceWorker.ready.then(function (reg) {
+        var key = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+        function fresh() { return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }); }
+        return reg.pushManager.getSubscription().then(function (existing) {
+          if (!existing) return fresh();
+          // A subscription made with a different VAPID key can never receive our pushes — replace it.
+          var cur = existing.options && existing.options.applicationServerKey;
+          if (cur && cur.byteLength === key.byteLength && new Uint8Array(cur).every(function (v, i) { return v === key[i]; })) return existing;
+          if (!cur) return existing;
+          return existing.unsubscribe().then(fresh);
+        }).catch(function () {
+          return reg.pushManager.getSubscription().then(function (x) { return x ? x.unsubscribe() : null; }).then(fresh);
+        });
+      }).then(function (sub) { return saveSubscription(sub, userId); });
+    }).catch(function (e) { console.warn('[pwa] push subscribe failed', e); return false; });
+  }
+
+  // Same report for the Android app: permission → Firebase token → server → real test push.
+  function diagnoseNative() {
+    var lines = [];
+    function add(ok, name, detail) { lines.push({ ok: ok, name: name, detail: detail }); }
+    return (async function () {
+      add(true, 'This phone', 'Running inside the Camplugie Android app.');
+      nativeListen();
+      var state = await nativePerm();
+      if (state === 'denied') { add(false, 'Permission', 'Notifications are BLOCKED. Open phone Settings → Apps → Camplugie → Notifications → Allow, then try again.'); return lines; }
+      if (state !== 'granted') { add(false, 'Permission', 'Not allowed yet. Switch Push notifications off and on, and tap Allow.'); return lines; }
+      add(true, 'Permission', 'Allowed.');
+      var ok = await nativeRegister(window.CP_USER, false);
+      if (!ok || !nativeToken) add(false, 'Firebase', 'This phone could not register with Firebase. Check that google-services.json was added to native/ before the app was built, and that the phone has internet + Google Play services.');
+      else add(true, 'Firebase', 'This phone is registered with Google’s push service.');
+      try {
+        var sess = await window.sb.auth.getSession();
+        var token = sess && sess.data && sess.data.session && sess.data.session.access_token;
+        var r = await fetch('/api/push-test', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ native_token: nativeToken || null, appKey: VAPID_PUBLIC_KEY }) });
+        var j = await r.json().catch(function () { return {}; });
+        if (j.steps) j.steps.forEach(function (st) { lines.push(st); });
+        else add(false, 'Server', j.error || ('The server answered ' + r.status + '.'));
+      } catch (e) { add(false, 'Server', 'Could not reach the server: ' + e.message); }
+      return lines;
+    })();
+  }
+
+  // Walks the whole push chain for this phone and returns [{ok,name,detail}] in plain
+  // English (used by Settings → "Send test notification"). Also asks the server to check
+  // its keys + saved devices and to send a real test push.
+  function diagnosePush() {
+    var lines = [];
+    function add(ok, name, detail) { lines.push({ ok: ok, name: name, detail: detail }); }
+    if (isNative()) return diagnoseNative();
+    return (async function () {
+      if (inCamplugieApp()) {
+        add(false, 'App connection', 'The Camplugie app is open, but its native link is NOT connected to this page, so notifications cannot be set up. ' +
+          'Page address: ' + location.origin + ' · Capacitor: ' + typeof window.Capacitor + ' · androidBridge: ' + typeof window.androidBridge + ' · app: ' + ((navigator.userAgent.match(/CamplugieApp\/[\d.]+/) || ['?'])[0]) +
+          '. Send this line to Claude.');
+        return lines;
+      }
+      if (!pushSupported()) {
+        add(false, 'This phone', 'This browser can’t receive push notifications. On iPhone, first add Camplugie to your Home Screen and open it from there.');
+        return lines;
+      }
+      add(true, 'This phone', isStandalone() ? 'Push is supported (running as the installed app).' : 'Push is supported (running in the browser — install the app for app-style alerts).');
+      if (Notification.permission === 'denied') {
+        add(false, 'Permission', 'Notifications are BLOCKED for Camplugie. Open your phone Settings → Apps → Camplugie (or Chrome → Site settings) → Notifications → Allow. Then try again.');
+        return lines;
+      }
+      if (Notification.permission !== 'granted') {
+        add(false, 'Permission', 'Not allowed yet. Switch Push notifications off and on, and tap Allow when the phone asks.');
+        return lines;
+      }
+      add(true, 'Permission', 'Allowed.');
+
+      var sub = null;
+      try {
+        var reg = await navigator.serviceWorker.getRegistration();
+        if (!reg || !reg.active) add(false, 'App worker', 'The background worker is not running yet. Close the app fully, reopen it, and try again.');
+        else { add(true, 'App worker', 'Running.'); sub = await reg.pushManager.getSubscription(); }
+      } catch (e) { add(false, 'App worker', 'Could not read the background worker: ' + e.message); }
+      if (!sub) add(false, 'Subscription', 'This phone has not registered for push yet. Switch Push notifications off and on in Settings.');
+      else add(true, 'Subscription', 'This phone is registered with the push service.');
+
+      try {
+        var sess = await window.sb.auth.getSession();
+        var token = sess && sess.data && sess.data.session && sess.data.session.access_token;
+        var r = await fetch('/api/push-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ endpoint: sub && sub.endpoint, appKey: VAPID_PUBLIC_KEY }),
+        });
+        var j = await r.json().catch(function () { return {}; });
+        if (r.status === 404) add(false, 'Server', 'The test endpoint was not found. Upload api/push-test.js to GitHub and let Vercel redeploy.');
+        else if (j.steps) j.steps.forEach(function (st) { lines.push(st); });
+        else add(false, 'Server', j.error || ('The server answered ' + r.status + '. Check the Vercel logs for /api/push-test.'));
+      } catch (e) { add(false, 'Server', 'Could not reach the server: ' + e.message); }
+
+      // How long did the most recent alerts actually take? (recorded by the service worker)
+      try {
+        var cache = await caches.open('cp-push-log');
+        var m = await cache.match('/__pushlog');
+        var list = m ? await m.json() : [];
+        if (list.length) {
+          var secs = function (ms) { return ms == null ? '?' : (ms < 1000 ? '<1' : Math.round(ms / 1000)) + 's'; };
+          var l = list[0], slow = list.some(function (x) { return x.phoneMs > 30000; });
+          add(!slow, 'Delivery speed', 'Last alert (“' + l.title + '”): our server took ' + secs(l.serverMs) + ', then the push service + your phone took ' + secs(l.phoneMs) + '.' +
+            (slow ? ' Your phone is holding alerts back — open “Alerts arriving late?” below and set Camplugie + Chrome to Unrestricted battery.' : ''));
+        }
+      } catch (e) { /* no log yet */ }
+      return lines;
+    })();
+  }
+
+  // Unsubscribes this device and removes its row so the server stops
+  // trying to push to it.
+  function unsubscribePush() {
+    if (isNative()) return nativeUnregister();
+    if (!pushSupported()) return Promise.resolve(false);
+    return navigator.serviceWorker.ready.then(function (reg) {
+      return reg.pushManager.getSubscription();
+    }).then(function (sub) {
+      if (!sub) return true;
+      var endpoint = sub.endpoint;
+      return sub.unsubscribe().then(function () {
+        return window.sb ? window.sb.from('push_subscriptions').delete().eq('endpoint', endpoint) : null;
+      }).then(function () { return true; });
+    }).catch(function (e) { console.warn('[pwa] push unsubscribe failed', e); return false; });
+  }
+
+  /* =====================================================================
+   *  6. SHARE
+   * ===================================================================== */
+  function copy(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    return new Promise(function (res) {
+      var t = doc.createElement('textarea'); t.value = text; t.style.cssText = 'position:fixed;opacity:0'; doc.body.appendChild(t); t.select();
+      try { doc.execCommand('copy'); } catch (e) {} doc.body.removeChild(t); res();
+    });
+  }
+  function share(o) {
+    o = o || {};
+    var d = { title: o.title || 'Camplugie', text: o.text || 'Buy, sell and get things delivered on campus with Camplugie 🎓🔌', url: o.url || (location.origin + '/download.html') };
+    function fallback() { window.open('https://wa.me/?text=' + encodeURIComponent(d.text + ' ' + d.url), '_blank', 'noopener'); }
+    if (navigator.share) return navigator.share(d).catch(function (e) { if (!e || e.name !== 'AbortError') fallback(); });
+    fallback(); return Promise.resolve();
+  }
+
+  /* =====================================================================
+   *  BOOT
+   * ===================================================================== */
+  addStyle('cp-ui-css', UI_CSS);
+  var willSplash = !(has(NO_SPLASH) || sess('cp_splash') || /[?&]nosplash\b/.test(location.search));
+  if (willSplash) startSplash(); else { Bar.start(); }
+  window.addEventListener('load', function () { Bar.done(); scheduleBanner(); });
+  window.addEventListener('pageshow', function (e) { if (e.persisted) { Bar.done(); CPLoader.hideAll(); } });
+
+  // slim bar while jumping between pages
+  doc.addEventListener('click', function (e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+    var u; try { u = new URL(a.href, location.href); } catch (_) { return; }
+    if (u.origin !== location.origin || /\.(apk|aab|zip|pdf)$/i.test(u.pathname)) return;
+    if (u.pathname === location.pathname && u.search === location.search) return;
+    Bar.start();
+  }, true);
+
+  /* =====================================================================
+   *  APP PERMISSIONS — one friendly screen that asks for everything the app uses
+   *  (notifications, microphone, camera, location), once, with a tap per prompt.
+   *  Browsers/Android only show a permission prompt after a tap, so this can't be
+   *  done silently. "Photos & files" needs no permission: the phone's own picker
+   *  only ever shares the files the person chooses.
+   * ===================================================================== */
+  var PERMS = [
+    { id: 'notifications', icon: '🔔', title: 'Notifications', why: 'Messages, calls, lectures, new listings and posts — even when the app is closed.' },
+    { id: 'microphone',    icon: '🎤', title: 'Microphone',    why: 'Voice and video calls, lectures and voice notes.' },
+    { id: 'camera',        icon: '📷', title: 'Camera',        why: 'Video calls, lectures, and photos for your listings and posts.' },
+    { id: 'geolocation',   icon: '📍', title: 'Location',      why: 'Drop pickup and delivery pins and find Swift runners near you.' },
+    { id: 'files',         icon: '🗂️', title: 'Photos & files', why: 'Always on — Camplugie only opens the photos and files you pick yourself.', always: true },
+  ];
+  var permsEl = null;
+
+  function permState(id) {
+    if (id === 'files') return Promise.resolve('always');
+    if (isNative()) {                                   // inside the app, ask Android (notifications) or use what we remember
+      if (id === 'notifications') return nativePerm();
+      return Promise.resolve(nativeFlag(id) === 'granted' ? 'granted' : 'prompt');
+    }
+    if (id === 'notifications') {
+      if (!('Notification' in window)) return Promise.resolve('unsupported');
+      return Promise.resolve({ granted: 'granted', denied: 'denied', 'default': 'prompt' }[Notification.permission]);
+    }
+    if (!navigator.permissions || !navigator.permissions.query) return Promise.resolve('prompt');
+    return navigator.permissions.query({ name: id }).then(function (r) { return r.state; }, function () { return 'prompt'; });
+  }
+
+  function askMedia(kind) {            // 'microphone' | 'camera' — one prompt covers whichever is still missing
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.resolve(false);
+    var want = kind === 'camera' ? { video: true } : { audio: true };
+    return navigator.mediaDevices.getUserMedia(want).then(function (st) { st.getTracks().forEach(function (t) { t.stop(); }); return true; }, function () { return false; });
+  }
+  function askLocation() {
+    return new Promise(function (resolve) {
+      if (!navigator.geolocation) return resolve(false);
+      navigator.geolocation.getCurrentPosition(function () { resolve(true); }, function () { resolve(false); }, { timeout: 12000, maximumAge: 600000 });
+    });
+  }
+  function askPerm(id, user) {
+    if (id === 'notifications') return subscribePush(user.id, true);
+    var p = (id === 'microphone' || id === 'camera') ? askMedia(id) : id === 'geolocation' ? askLocation() : Promise.resolve(true);
+    return p.then(function (ok) { if (ok && isNative()) nativeFlag(id, 'granted'); return ok; });
+  }
+
+  addStyle('cp-perms-css', [
+    '#cp-perms-bd{position:fixed;inset:0;z-index:2147483300;background:rgba(5,3,14,.66);opacity:0;transition:opacity .25s}',
+    '#cp-perms-bd.on{opacity:1}',
+    '#cp-perms{position:fixed;left:0;right:0;bottom:0;z-index:2147483301;max-width:520px;margin:0 auto;max-height:92vh;overflow-y:auto;',
+    'background:#14102B;color:#F8F6FF;border:1px solid rgba(255,255,255,.1);border-bottom:0;border-radius:24px 24px 0 0;',
+    'padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));font-family:system-ui,-apple-system,sans-serif;',
+    'transform:translateY(100%);transition:transform .32s cubic-bezier(.2,.8,.2,1);box-shadow:0 -20px 50px rgba(0,0,0,.5)}',
+    '#cp-perms.on{transform:none}',
+    '#cp-perms h3{margin:2px 0 4px;font-size:19px}#cp-perms .sub{margin:0 0 14px;color:#C9C3DE;font-size:13px;line-height:1.45}',
+    '#cp-perms .row{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid rgba(255,255,255,.07)}',
+    '#cp-perms .ic{width:40px;height:40px;border-radius:12px;background:rgba(124,58,237,.18);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}',
+    '#cp-perms .tx{flex:1;min-width:0}#cp-perms .tx b{display:block;font-size:14.5px}#cp-perms .tx span{display:block;font-size:12px;color:#A59FC2;line-height:1.35;margin-top:2px}',
+    '#cp-perms .st{flex:none;font-size:11.5px;font-weight:800;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.08);color:#C9C3DE}',
+    '#cp-perms .st.ok{background:rgba(52,211,153,.16);color:#34D399}#cp-perms .st.no{background:rgba(251,113,133,.16);color:#FB7185}',
+    '#cp-perms .hint{font-size:11.5px;color:#FB7185;margin:4px 0 0}',
+    '#cp-perms .btns{display:flex;gap:10px;margin-top:14px}',
+    '#cp-perms .btns button{flex:1;border:0;border-radius:14px;padding:13px;font:800 14px system-ui,sans-serif;cursor:pointer}',
+    '#cp-perms .all{background:linear-gradient(135deg,#7C3AED,#4F8DF7);color:#fff}#cp-perms .later{background:rgba(255,255,255,.08);color:#C9C3DE;flex:.55!important}'
+  ].join(''));
+
+  function closePermSheet() {
+    if (!permsEl) return;
+    var el = permsEl, bd = doc.getElementById('cp-perms-bd');
+    permsEl = null; store('cp_perms_v1', String(Date.now()));
+    el.classList.remove('on'); if (bd) bd.classList.remove('on');
+    setTimeout(function () { el.remove(); if (bd) bd.remove(); }, 380);
+  }
+  function paintPermSheet(user) {
+    if (!permsEl) return Promise.resolve();
+    return Promise.all(PERMS.map(function (p) { return permState(p.id); })).then(function (states) {
+      var rows = PERMS.map(function (p, i) {
+        var st = states[i], cls = (st === 'granted' || st === 'always') ? 'ok' : st === 'denied' ? 'no' : '';
+        var label = st === 'always' ? 'Always on' : st === 'granted' ? 'Allowed ✓' : st === 'denied' ? 'Blocked' : st === 'unsupported' ? 'Not available' : 'Not yet';
+        return '<div class="row"><div class="ic">' + p.icon + '</div><div class="tx"><b>' + p.title + '</b><span>' + p.why + '</span>' +
+          (st === 'denied' ? '<div class="hint">Blocked — open your phone Settings → Apps → Camplugie → Permissions to allow it.</div>' : '') +
+          '</div><div class="st ' + cls + '">' + label + '</div></div>';
+      }).join('');
+      var pending = states.some(function (st) { return st === 'prompt'; });
+      permsEl.innerHTML = '<h3>Set up Camplugie</h3><p class="sub">Allow these once so calls, lectures and alerts work like WhatsApp — even when the app is closed.</p>' + rows +
+        '<div class="btns">' + (pending ? '<button class="later" id="cpPermLater">Not now</button><button class="all" id="cpPermAll">Allow all</button>' : '<button class="all" id="cpPermDone">Done</button>') + '</div>';
+      var all = permsEl.querySelector('#cpPermAll'), later = permsEl.querySelector('#cpPermLater'), done = permsEl.querySelector('#cpPermDone');
+      if (later) later.onclick = closePermSheet;
+      if (done) done.onclick = closePermSheet;
+      if (all) all.onclick = function () {
+        all.disabled = true; all.textContent = 'Asking…';
+        var chain = Promise.resolve();
+        PERMS.forEach(function (p, i) {
+          chain = chain.then(function () { return permState(p.id); }).then(function (st) { return st === 'prompt' ? askPerm(p.id, user) : null; }).then(function () { return paintPermSheet(user); });
+        });
+        chain.then(function () { try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {} });
+      };
+    });
+  }
+  function openPermSheet(user) {
+    user = user || window.CP_USER; if (!user || permsEl) return;
+    var bd = doc.createElement('div'); bd.id = 'cp-perms-bd'; bd.onclick = closePermSheet;
+    permsEl = doc.createElement('div'); permsEl.id = 'cp-perms'; permsEl.setAttribute('role', 'dialog');
+    (doc.body || root).appendChild(bd); (doc.body || root).appendChild(permsEl);
+    paintPermSheet(user).then(function () { requestAnimationFrame(function () { requestAnimationFrame(function () { bd.classList.add('on'); permsEl && permsEl.classList.add('on'); }); }); });
+  }
+  // Shows once, automatically, the first time someone signs in on this phone.
+  function maybeShowPermSheet(user) {
+    if (store('cp_perms_v1') || has(NO_PUSH_PROMPT) || inAppBrowser()) return;
+    if (isIOS() && !isStandalone()) return;                  // iPhone only allows push once installed to the Home Screen
+    Promise.all(PERMS.map(function (p) { return permState(p.id); })).then(function (states) {
+      if (!states.some(function (st) { return st === 'prompt'; })) { store('cp_perms_v1', String(Date.now())); return; }
+      setTimeout(function () { openPermSheet(user); }, isStandalone() ? 3000 : 8000);
+    });
+  }
+
+  // Fires on every protected page (each one dispatches 'cp-ready' after
+  // loading the session + profile). Keeps this device's subscription alive
+  // silently when permission was already granted, and otherwise offers a
+  // friendly one-tap "Turn on notifications" card (browsers only allow the
+  // permission prompt from a tap, so it can't be fired automatically).
+  var NO_PUSH_PROMPT = ['offline', 'call', 'group-call', 'turn-test', 'download', 'preview',
+                        'auth', 'onboarding', 'verify-email', 'banned', 'admin', 'settings', 'chat-thread', 'group-thread'];
+  var pushBannerEl;
+  function removePushBanner() { if (pushBannerEl) { var b = pushBannerEl; b.classList.remove('on'); setTimeout(function () { b.parentNode && b.parentNode.removeChild(b); }, 400); pushBannerEl = null; } }
+  function showPushBanner(user) {
+    if (pushBannerEl || !pushSupported() || Notification.permission !== 'default') return;
+    pushBannerEl = doc.createElement('div'); pushBannerEl.id = 'cp-install'; pushBannerEl.setAttribute('role', 'dialog');
+    pushBannerEl.innerHTML = '<img src="/icons/icon-96.png" alt="" width="46" height="46"><div class="t"><b>Turn on notifications</b>' +
+      '<span>Get new messages, orders and delivery updates the moment they happen.</span></div>' +
+      '<button class="go">Turn on</button><button class="x" aria-label="Not now">&#10005;</button>';
+    (doc.body || root).appendChild(pushBannerEl);
+    pushBannerEl.querySelector('.go').onclick = function () {
+      removePushBanner();
+      subscribePush(user.id, true).then(function (ok) {
+        if (ok) {
+          try { window.sb.from('profiles').update({ push_enabled: true }).eq('id', user.id).then(function () {}, function () {}); } catch (e) {}
+          toast('Notifications are on 🔔');
+        } else if (Notification.permission === 'denied') {
+          toast('Notifications are blocked — enable them for Camplugie in your phone settings.');
+        } else {
+          toast('Couldn’t turn notifications on for this device. Check your connection and try again from Settings.');
+        }
+      });
+    };
+    pushBannerEl.querySelector('.x').onclick = function () {
+      var n = (+store('cp_push_dismissed') || 0) + 1; store('cp_push_dismissed', String(n));
+      store('cp_push_snooze', String(Date.now() + (n >= 3 ? 30 : 3) * 864e5));
+      removePushBanner();
+    };
+    requestAnimationFrame(function () { requestAnimationFrame(function () { pushBannerEl && pushBannerEl.classList.add('on'); }); });
+  }
+
+  doc.addEventListener('cp-ready', function (e) {
+    var profile = e.detail && e.detail.profile, user = e.detail && e.detail.user;
+    if (!user) return;
+    window.CP_USER = window.CP_USER || user;
+    maybeShowPermSheet(user);                                           // one friendly "allow everything" screen, once
+    if (isNative()) {                                                   // Android app: keep this phone registered with Firebase
+      nativeListen();
+      if (!profile || profile.push_enabled !== false) nativePerm().then(function (st) { if (st === 'granted') nativeRegister(user, false); });
+      return;
+    }
+    if (!pushSupported()) return;
+    var enabled = !profile || profile.push_enabled !== false;      // null/undefined = on by default
+    if (!enabled) return;
+
+    if (Notification.permission === 'granted') {
+      // Re-register at most once per session per device (cheap, self-healing).
+      if (!sess('cp_push_synced')) { sess('cp_push_synced', '1'); subscribePush(user.id, false); }
+      return;
+    }
+    if (Notification.permission !== 'default') return;               // denied: respect it
+    if (has(NO_PUSH_PROMPT) || inAppBrowser()) return;
+    if (isIOS() && !isStandalone()) return;                           // iPhone only allows push once installed to the Home Screen
+    if (!store('cp_perms_v1')) return;                                // the setup screen above asks for notifications first
+    if (Date.now() < (+store('cp_push_snooze') || 0)) return;
+    setTimeout(function () { showPushBanner(user); }, isStandalone() ? 4000 : 12000);
+  });
+
+  if (isNative()) nativeListen();
+
+  // Messages from the service worker.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', function (e) {
+      var d = e.data || {};
+      if (d.type === 'cp-navigate' && d.url) location.href = d.url;
+      if (d.type === 'cp-push-resubscribe' && window.CP_USER) subscribePush(window.CP_USER.id, false);
+      if (d.type === 'cp-push') { try { doc.dispatchEvent(new CustomEvent('cp-push', { detail: d.payload })); } catch (_) {} }
+    });
+  }
+
+  /* =====================================================================
+   *  OFFLINE MODE (WhatsApp-style). The service worker saves what you view; this part makes the
+   *  rest of the app behave: it stays signed in with no signal, shows a small "offline" badge,
+   *  and wipes everything saved when you sign out.
+   * ===================================================================== */
+
+  // The sign-in Supabase keeps on the phone. With no signal its token can't be refreshed, which would
+  // make every page think you are signed out and bounce you to the login screen. Offline, we hand
+  // pages the saved sign-in instead (it is the same person, on the same phone).
+  function storedSession() {
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (/^sb-.+-auth-token$/.test(k)) {
+          var j = JSON.parse(localStorage.getItem(k));
+          if (j && j.access_token && j.user) return j;
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+  function clearOffline() {
+    try { if (navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage('CP_CLEAR_OFFLINE'); } catch (e) {}
+    return Promise.resolve();
+  }
+  // Runs just BEFORE a sign-out: stop alerts for this account on this phone, forget saved offline data.
+  function beforeSignOut() {
+    var done = Promise.all([unsubscribePush().catch(function () {}), clearOffline()]);
+    var cap = new Promise(function (r) { setTimeout(r, 2500); });                 // never let this hold up signing out
+    return Promise.race([done, cap]).then(function () {}, function () {});
+  }
+  function wrapSupabase(lib) {
+    if (!lib || lib.__cpWrapped || typeof lib.createClient !== 'function') return lib;
+    var orig = lib.createClient;
+    lib.__cpWrapped = true;
+    lib.createClient = function () {
+      var client = orig.apply(this, arguments);
+      try {
+        var auth = client.auth, getSession = auth.getSession.bind(auth), signOut = auth.signOut.bind(auth);
+        auth.getSession = function () {
+          return getSession().then(function (r) {
+            if (r && r.data && r.data.session) return r;
+            var offline = !navigator.onLine || (r && r.error && /fetch|network|timeout|load failed/i.test(String(r.error.message || r.error)));
+            var saved = offline ? storedSession() : null;
+            return saved ? { data: { session: saved }, error: null } : r;
+          }, function (e) {
+            var saved = !navigator.onLine ? storedSession() : null;
+            if (saved) return { data: { session: saved }, error: null };
+            throw e;
+          });
+        };
+        auth.signOut = function () {
+          var args = arguments;
+          return beforeSignOut().then(function () { return signOut.apply(null, args); });
+        };
+      } catch (e) { console.warn('[pwa] offline sign-in helper not attached', e); }
+      return client;
+    };
+    return lib;
+  }
+  // Pages load the Supabase library AFTER this file, so wait for it to appear.
+  if (window.supabase) wrapSupabase(window.supabase);
+  else {
+    var _supabaseLib;
+    try {
+      Object.defineProperty(window, 'supabase', {
+        configurable: true,
+        get: function () { return _supabaseLib; },
+        set: function (v) { _supabaseLib = wrapSupabase(v); }
+      });
+    } catch (e) {}
+  }
+
+  // The little "offline" badge (top, centred) + "Back online — Refresh".
+  addStyle('cp-offline-css', [
+    '#cp-offline{position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);left:50%;transform:translate(-50%,-140%);z-index:2147483200;',
+    'background:rgba(30,22,58,.96);color:#E9E4FF;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 13px;',
+    'font:700 12px system-ui,-apple-system,sans-serif;display:flex;align-items:center;gap:7px;pointer-events:none;',
+    'box-shadow:0 6px 20px rgba(0,0,0,.4);transition:transform .3s cubic-bezier(.2,.8,.2,1);white-space:nowrap}',
+    '#cp-offline.on{transform:translate(-50%,0)}',
+    '#cp-offline i{width:8px;height:8px;border-radius:50%;background:#FBBF24;display:inline-block}'
+  ].join(''));
+  var offlineEl = null, wasOffline = false;
+  function setOffline(on) {
+    if (on) {
+      if (!offlineEl) { offlineEl = doc.createElement('div'); offlineEl.id = 'cp-offline'; offlineEl.innerHTML = '<i></i>Offline · showing saved content'; (doc.body || root).appendChild(offlineEl); }
+      requestAnimationFrame(function () { offlineEl && offlineEl.classList.add('on'); });
+      wasOffline = true;
+    } else {
+      if (offlineEl) offlineEl.classList.remove('on');
+      if (wasOffline) { wasOffline = false; toast('Back online', 'Refresh', function () { location.reload(); }, 6000); }
+    }
+  }
+  window.addEventListener('offline', function () { setOffline(true); });
+  window.addEventListener('online', function () { setOffline(false); });
+  if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', function () { if (!navigator.onLine) setOffline(true); });
+  else if (!navigator.onLine) setOffline(true);
+
+  window.CamplugiePWA = {
+    apkUrl: APK_URL,
+    install: install,
+    state: state,
+    onChange: function (fn) { listeners.push(fn); try { fn(state()); } catch (e) {} },
+    share: share,
+    copy: copy,
+    toast: toast,
+    showBanner: showBanner,
+    playSplash: function () { startSplash(true); },
+    push: {
+      supported: pushSupported,
+      permission: pushPermission,
+      subscribe: subscribePush,
+      diagnose: diagnosePush,
+      publicKey: VAPID_PUBLIC_KEY,
+      unsubscribe: unsubscribePush
+    },
+    permissions: { open: function () { openPermSheet(window.CP_USER); } },
+    beforeSignOut: beforeSignOut
+  };
+})();
