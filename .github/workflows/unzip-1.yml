@@ -1,0 +1,35 @@
+name: Unzip assets
+
+# Runs when assets-update.zip is uploaded to the repo (or when you tap "Run workflow").
+on:
+  push:
+    paths:
+      - "assets-update.zip"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Unzip into the repo root
+        run: |
+          if [ ! -f assets-update.zip ]; then
+            echo "assets-update.zip not found"; exit 1
+          fi
+          unzip -o assets-update.zip -d .
+          rm assets-update.zip
+
+      - name: Commit the extracted files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && echo "Nothing to commit" && exit 0
+          git commit -m "Update assets from assets-update.zip"
+          git push
