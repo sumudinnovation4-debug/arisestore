@@ -2,13 +2,13 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Product | Arise and Shine Digital World</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="assets/style.css?v=3"></head>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/style.css?v=4"></head>
 <body>
 <div id="site-header"></div>
 <main class="wrap" id="main"><div class="empty">Loading…</div></main>
 <div id="site-footer"></div>
-<script src="config.js"></script><script src="assets/catalog.js?v=3"></script><script src="assets/app.js?v=3"></script>
+<script src="config.js"></script><script src="assets/catalog.js?v=4"></script><script src="assets/app.js?v=4"></script>
 <script>
 A.layout("categories");
 var id = new URLSearchParams(location.search).get("id");
@@ -27,12 +27,13 @@ A.getProducts().then(function (list) {
     '<button class="btn primary" id="add" style="border-radius:99px">Add to cart</button><button class="btn yellow" id="buy" style="border-radius:99px">Buy now</button>';
   if (p.price == null) box += '<p class="note">Price on request. Add it to your cart and we confirm the price, or ask us now.</p>' +
     (A.C.whatsapp ? '<a class="btn" target="_blank" rel="noopener" href="https://wa.me/' + A.esc(A.C.whatsapp) + "?text=" + encodeURIComponent("Hello, please send me the price and availability for " + p.name) + '">Ask for the price on WhatsApp</a>' : "");
-  box += '<p class="note">Pickup from the store or delivery. Pay by card, bank or transfer. Track your order after checkout.</p></div>';
+  box += '<ul class="perks"><li>Genuine product from a known brand</li><li>Pay by card, bank or transfer</li><li>Pickup or delivery to your town</li><li>Track your order and get a receipt</li></ul></div>';
 
   main.innerHTML =
     '<p class="crumbs"><a href="shop.html">Shop</a> › <a href="shop.html?cat=' + p.category + '">' + A.esc(c ? c.name : "") + "</a></p>" +
     '<div class="pp"><div class="gal">' + A.media(p) + "</div>" +
     '<div class="info"><span class="brand">' + A.esc(p.brand) + "</span><h1>" + A.esc(p.name) + "</h1><p>" + A.esc(p.description || "") + "</p>" +
+    (c ? '<div class="specs"><div><span>Brand</span><b>' + A.esc(p.brand || "") + '</b></div><div><span>Category</span><b>' + A.esc(c.name) + '</b></div><div><span>Availability</span><b>' + (p.price == null ? "Ask us" : A.inStock(p) ? "In stock" : "Out of stock") + '</b></div><div><span>Delivery</span><b>Nationwide or pickup</b></div></div>' : "") +
     (c ? '<div class="tips" style="margin-top:14px"><h2 style="font-size:16px">Before you buy</h2><ul>' + c.tips.map(function (t) { return "<li>" + A.esc(t) + "</li>"; }).join("") + "</ul></div>" : "") + "</div>" +
     box + "</div>" +
     '<section class="shelf" style="margin-top:16px"><div class="sechead"><h2>More ' + A.esc(c ? c.name : "products") + '</h2><a href="shop.html?cat=' + p.category + '">See all</a></div><div class="rail" id="related"></div></section>';
