@@ -4,49 +4,70 @@
 <meta name="description" content="Laptops, printers, networking, audio and power accessories from HP, Dell, Lenovo, Apple, Canon, Epson, JBL, Anker and more.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/style.css?v=4"></head>
+<link rel="stylesheet" href="assets/style.css?v=5"></head>
 <body>
 <div id="site-header"></div>
 
 <main class="wrap">
-  <section class="hero reveal">
-    <p class="eyebrow">Arise and Shine Digital World</p>
-    <h1>Technology that works as hard as you do.</h1>
-    <p class="lead">Laptops, printers, networking, audio and power. Genuine brands, clear prices, delivered to your door.</p>
-    <div class="cta"><a class="pill" href="shop.html">Shop now</a><a class="pill ghost" href="categories.html">Browse categories</a></div>
-    <div class="trust"><span>Genuine brands</span><span>Secure checkout</span><span>Nationwide delivery</span><span>Order tracking</span></div>
+  <section class="hero2 reveal" aria-roledescription="carousel" aria-label="Featured">
+    <div class="hslides" id="hslides">
+      <div class="hslide s1">
+        <div class="htext"><p class="eyebrow">Arise and Shine Digital World</p><h1>Technology that works as hard as you do.</h1><p class="lead">Laptops, printers, networking, audio and power. Genuine brands, clear prices, delivered to your door.</p>
+          <div class="cta"><a class="pill" href="shop.html?cat=laptops">Shop laptops</a><a class="pill ghost" href="shop.html">Shop everything</a></div></div>
+        <div class="hphoto" data-photo="Laptop|Ultrabook" data-slug="laptops" data-alt="Laptops"><svg viewBox="0 0 150 110" aria-hidden="true"><rect x="28" y="14" width="94" height="62" rx="6"/><path d="M14 90h122l-8 8H22z"/></svg></div>
+      </div>
+      <div class="hslide s2">
+        <div class="htext"><p class="eyebrow">Printers, ink and toner</p><h2>Print, scan and copy with ease.</h2><p class="lead">Canon, Epson, HP and Brother for home, school and office.</p>
+          <div class="cta"><a class="pill" href="shop.html?cat=printers">Shop printers</a><a class="pill ghost" href="shop.html">Shop everything</a></div></div>
+        <div class="hphoto" data-photo="Printer_(computing)|Inkjet_printing" data-slug="printers" data-alt="Printers"><svg viewBox="0 0 150 110" aria-hidden="true"><rect x="30" y="38" width="90" height="42" rx="6"/><path d="M48 38V16h54v22M48 62h54v32H48z"/></svg></div>
+      </div>
+      <div class="hslide s3">
+        <div class="htext"><p class="eyebrow">UPS and stabilizers</p><h2>Keep working when the power goes.</h2><p class="lead">Protect your equipment from surges and outages with APC, Anker and more.</p>
+          <div class="cta"><a class="pill" href="shop.html?cat=ups-stabilizers">Shop power</a><a class="pill ghost" href="shop.html">Shop everything</a></div></div>
+        <div class="hphoto" data-photo="Uninterruptible_power_supply|Voltage_regulator" data-slug="ups-stabilizers" data-alt="UPS"><svg viewBox="0 0 150 110" aria-hidden="true"><rect x="40" y="20" width="70" height="72" rx="8"/><path d="M80 32l-14 24h14l-6 22 20-28H80l8-18z"/></svg></div>
+      </div>
+      <div class="hslide s4">
+        <div class="htext"><p class="eyebrow">Audio</p><h2>Hear every detail.</h2><p class="lead">Headphones, earbuds, speakers and microphones from JBL, Sony and more.</p>
+          <div class="cta"><a class="pill" href="shop.html?cat=headphones">Shop audio</a><a class="pill ghost" href="shop.html">Shop everything</a></div></div>
+        <div class="hphoto" data-photo="Headphones|Headset_(audio)" data-slug="headphones" data-alt="Headphones"><svg viewBox="0 0 150 110" aria-hidden="true"><path d="M32 70V58a43 43 0 0 1 86 0v12"/><rect x="24" y="66" width="22" height="34" rx="9"/><rect x="104" y="66" width="22" height="34" rx="9"/></svg></div>
+      </div>
+    </div>
+    <button class="harrow prev" id="hprev" aria-label="Previous slide">‹</button>
+    <button class="harrow next" id="hnext" aria-label="Next slide">›</button>
+    <div class="hdots" id="hdots"></div>
   </section>
+  <div class="trustbar"><span>Genuine brands</span><span>Secure checkout</span><span>Nationwide delivery</span><span>Order tracking</span></div>
 
   <section class="bento">
     <a class="tile dark wide reveal" href="shop.html?cat=laptops">
       <p class="k">Laptops</p><h2>Built for work.<br>Ready for anything.</h2>
       <p>HP, Dell, Lenovo, Apple, ASUS, Acer and Surface for school, business and creating.</p>
       <div class="links"><b>Shop laptops ›</b><b>Compare brands ›</b></div>
-      <div class="art"><svg viewBox="0 0 150 110"><rect x="28" y="14" width="94" height="62" rx="6"/><path d="M14 90h122l-8 8H22z"/><path d="M60 82h30"/></svg></div>
+      <div class="art" data-photo="Laptop|Ultrabook" data-slug="laptops" data-alt="Laptops"><svg viewBox="0 0 150 110"><rect x="28" y="14" width="94" height="62" rx="6"/><path d="M14 90h122l-8 8H22z"/><path d="M60 82h30"/></svg></div>
     </a>
     <a class="tile warm reveal" href="shop.html?cat=printers">
       <p class="k">Printers, ink and toner</p><h2>Print, scan, copy.</h2>
       <p>Canon, Epson, HP and Brother for home and office.</p>
       <div class="links"><b>Shop printers ›</b></div>
-      <div class="art"><svg viewBox="0 0 150 110"><rect x="30" y="38" width="90" height="42" rx="6"/><path d="M48 38V16h54v22M48 62h54v32H48z"/></svg></div>
+      <div class="art" data-photo="Printer_(computing)|Inkjet_printing" data-slug="printers" data-alt="Printers"><svg viewBox="0 0 150 110"><rect x="30" y="38" width="90" height="42" rx="6"/><path d="M48 38V16h54v22M48 62h54v32H48z"/></svg></div>
     </a>
     <a class="tile blue reveal" href="shop.html?cat=ups-stabilizers">
       <p class="k">UPS and stabilizers</p><h2>Power that never blinks.</h2>
       <p>Keep working through outages and surges.</p>
       <div class="links"><b style="color:#fff">Shop power ›</b></div>
-      <div class="art"><svg viewBox="0 0 150 110"><rect x="40" y="20" width="70" height="72" rx="8"/><path d="M80 32l-14 24h14l-6 22 20-28H80l8-18z"/></svg></div>
+      <div class="art" data-photo="Uninterruptible_power_supply|Voltage_regulator" data-slug="ups-stabilizers" data-alt="UPS"><svg viewBox="0 0 150 110"><rect x="40" y="20" width="70" height="72" rx="8"/><path d="M80 32l-14 24h14l-6 22 20-28H80l8-18z"/></svg></div>
     </a>
     <a class="tile warm reveal" href="shop.html?cat=headphones">
       <p class="k">Audio</p><h2>Hear every detail.</h2>
       <p>Headphones, earbuds, speakers and microphones.</p>
       <div class="links"><b>Shop audio ›</b></div>
-      <div class="art"><svg viewBox="0 0 150 110"><path d="M32 70V58a43 43 0 0 1 86 0v12"/><rect x="24" y="66" width="22" height="34" rx="9"/><rect x="104" y="66" width="22" height="34" rx="9"/></svg></div>
+      <div class="art" data-photo="Headphones|Headset_(audio)" data-slug="headphones" data-alt="Headphones"><svg viewBox="0 0 150 110"><path d="M32 70V58a43 43 0 0 1 86 0v12"/><rect x="24" y="66" width="22" height="34" rx="9"/><rect x="104" y="66" width="22" height="34" rx="9"/></svg></div>
     </a>
     <a class="tile dark reveal" href="shop.html?cat=routers">
       <p class="k">Networking</p><h2>Wi-Fi without limits.</h2>
       <p>Routers and switches for the home, shop and office.</p>
       <div class="links"><b>Shop networking ›</b></div>
-      <div class="art"><svg viewBox="0 0 150 110"><rect x="24" y="62" width="102" height="30" rx="8"/><path d="M50 62L40 32M100 62l10-30M75 62V26"/><circle cx="46" cy="77" r="2"/><circle cx="58" cy="77" r="2"/></svg></div>
+      <div class="art" data-photo="Wireless_router|Router_(computing)" data-slug="routers" data-alt="Routers"><svg viewBox="0 0 150 110"><rect x="24" y="62" width="102" height="30" rx="8"/><path d="M50 62L40 32M100 62l10-30M75 62V26"/><circle cx="46" cy="77" r="2"/><circle cx="58" cy="77" r="2"/></svg></div>
     </a>
   </section>
 
@@ -99,7 +120,7 @@
 </main>
 
 <div id="site-footer"></div>
-<script src="config.js"></script><script src="assets/catalog.js?v=4"></script><script src="assets/app.js?v=4"></script>
+<script src="config.js"></script><script src="assets/catalog.js?v=5"></script><script src="assets/app.js?v=5"></script>
 <script>
 A.layout("home", { strip: false });
 
@@ -110,6 +131,33 @@ function tiles() {
   }).join("");
 }
 tiles(); A.onCats(tiles);
+
+/* header slider */
+(function () {
+  var box = document.getElementById("hslides"), n = box.children.length, i = 0, t, x0 = null;
+  var dots = document.getElementById("hdots");
+  dots.innerHTML = Array.prototype.map.call(box.children, function (_, k) { return '<button class="hdot" aria-label="Slide ' + (k + 1) + '" data-k="' + k + '"></button>'; }).join("");
+  function go(k) {
+    i = (k + n) % n; box.style.transform = "translateX(-" + i * 100 + "%)";
+    Array.prototype.forEach.call(dots.children, function (d, j) { d.setAttribute("aria-current", j === i); });
+  }
+  function restart() {
+    clearInterval(t);
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) t = setInterval(function () { go(i + 1); }, 6000);
+  }
+  dots.addEventListener("click", function (e) { var b = e.target.closest("[data-k]"); if (b) { go(+b.dataset.k); restart(); } });
+  document.getElementById("hprev").onclick = function () { go(i - 1); restart(); };
+  document.getElementById("hnext").onclick = function () { go(i + 1); restart(); };
+  var hero = box.parentNode;
+  hero.addEventListener("touchstart", function (e) { x0 = e.touches[0].clientX; }, { passive: true });
+  hero.addEventListener("touchend", function (e) {
+    if (x0 === null) return; var dx = e.changedTouches[0].clientX - x0; x0 = null;
+    if (Math.abs(dx) > 40) { go(i + (dx < 0 ? 1 : -1)); restart(); }
+  }, { passive: true });
+  hero.addEventListener("mouseenter", function () { clearInterval(t); });
+  hero.addEventListener("mouseleave", restart);
+  go(0); restart();
+})();
 
 /* chat button */
 (function () { var b = document.getElementById("helpbtn"), w = A.C.whatsapp; if (w) { b.href = "https://wa.me/" + w + "?text=" + encodeURIComponent("Hello, I need help choosing a product."); b.target = "_blank"; b.rel = "noopener"; b.textContent = "Chat with us on WhatsApp"; } })();

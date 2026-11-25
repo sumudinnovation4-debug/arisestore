@@ -141,9 +141,26 @@
       });
     });
   }
+  function bigUrl(u) { return u ? u.replace(/\/(\d+)px-/, "/900px-") : u; }
+  function hydratePhotos() {
+    Array.prototype.slice.call(document.querySelectorAll("[data-photo]")).forEach(function (el) {
+      var titles = el.getAttribute("data-photo").split("|"), slug = el.getAttribute("data-slug");
+      el.removeAttribute("data-photo");
+      var own = A.C && A.C.images && A.C.images[slug];
+      var chain = own ? Promise.resolve(own) : titles.reduce(function (p, t) { return p.then(function (u) { return u || wikiUrl(t); }); }, Promise.resolve(""));
+      chain.then(function (small) {
+        if (!small) return;
+        var img = new Image(); img.alt = el.getAttribute("data-alt") || ""; img.decoding = "async";
+        var triedBig = !own && bigUrl(small) !== small;
+        img.onload = function () { el.innerHTML = ""; el.appendChild(img); el.classList.add("on"); };
+        img.onerror = function () { if (triedBig) { triedBig = false; img.src = small; } };
+        img.src = triedBig ? bigUrl(small) : small;
+      });
+    });
+  }
   var hydT;
-  new MutationObserver(function () { clearTimeout(hydT); hydT = setTimeout(hydrate, 30); }).observe(document.documentElement, { childList: true, subtree: true });
-  setTimeout(hydrate, 0);
+  new MutationObserver(function () { clearTimeout(hydT); hydT = setTimeout(function () { hydrate(); hydratePhotos(); }, 30); }).observe(document.documentElement, { childList: true, subtree: true });
+  setTimeout(function () { hydrate(); hydratePhotos(); }, 0);
   document.addEventListener("error", function (e) {
     var t = e.target;
     if (t && t.tagName === "IMG" && t.dataset.cat) t.parentNode.innerHTML = A.iconSvg(t.dataset.cat);
